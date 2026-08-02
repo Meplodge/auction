@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Create Auction{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning">
+                    <h4 class="mb-0"><i class="fas fa-gavel"></i> Create Auction</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category">
+                                <option value="">Select Category</option>
+                                {% for category in categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="starting_price" class="form-label">Starting Price ($)</label>
+                                <input type="number" class="form-control" id="starting_price" name="starting_price" 
+                                       step="0.01" min="0" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="min_bid_increment" class="form-label">Min Bid Increment ($)</label>
+                                <input type="number" class="form-control" id="min_bid_increment" name="min_bid_increment" 
+                                       step="0.01" min="0.01" value="1.00" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="images" class="form-label">Images</label>
+                            <input type="file" class="form-control" id="images" name="images" multiple accept="image/*">
+                            <div class="form-text">Upload multiple images. First image will be primary.</div>
+                        </div>
+                        <button type="submit" class="btn btn-warning">Create Auction</button>
+                        <a href="{{ url_for('seller_dashboard') }}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

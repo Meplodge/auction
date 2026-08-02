@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}{{ auction.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Images -->
+        <div class="col-md-6">
+            <div class="card">
+                {% if images %}
+                    <div id="auctionCarousel" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            {% for image in images %}
+                            <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                <img src="{{ url_for('static', filename='uploads/' + image.image_url) }}" 
+                                     class="d-block w-100" alt="{{ auction.title }}" 
+                                     style="height: 400px; object-fit: contain;">
+                                {% if image.caption %}
+                                <div class="carousel-caption d-none d-md-block">
+                                    <p class="bg-dark p-2 rounded">{{ image.caption }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if images|length > 1 %}
+                        <button class="carousel-control-prev" type="button" data-bs-target="#auctionCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#auctionCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <img src="https://via.placeholder.com/600x400?text=No+Images" class="card-img-top" alt="No images">
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Auction Details -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h2>{{ auction.title }}</h2>
+                        <span class="badge bg-{{ 'success' if auction.status == 'active' else 'danger' }} fs-6 p-2">
+                            {{ auction.status|upper }}
+                        </span>
+                    </div>
+                    
+                    <p class="text-muted">Category: {{ auction.category or 'Uncategorized' }}</p>
+                    <p>{{ auction.description }}</p>
+                    
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Starting Price:</strong>
+                                <span class="text-muted">${{ auction.starting_price }}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Current Price:</strong>
+                                <span class="h4 text-primary">${{ auction.current_price }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Seller:</strong>
+                                <span>{{ auction.first_name }} {{ auction.last_name }}</span>
+                            </div>
+                            <div class="col-6">
+                                <strong>Total Bids:</strong>
+                                <span>{{ auction.total_bids }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Start Date:</strong>
+                                <small>{{ auction.start_date }}</small>
+                            </div>
+                            <div class="col-6">
+                                <strong>End Date:</strong>
+                                <small>{{ auction.end_date }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Countdown Timer -->
+                    {% if auction.status == 'active' %}
+                    <div class="alert alert-info">
+                        <strong>Time Remaining:</strong>
+                        <span id="countdown" data-end="{{ auction.end_date }}"></span>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Bidding Section -->
+                    {% if current_user.is_authenticated and current_user.user_type == 'buyer' and auction.status == 'active' %}
+                        <form method="POST" action="{{ url_for('place_bid') }}" class="mt-3">
+                            <input type="hidden" name="auction_id" value="{{ auction.auction_id }}">
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="bid_amount" 
+                                       step="0.01" min="{{ auction.current_price + auction.min_bid_increment }}" 
+                                       placeholder="Enter your bid" required>
+                                <button type="submit" class="btn btn-success">Place Bid</button>
+                            </div>
+                            <small class="text-muted">
+                                Minimum bid: ${{ auction.current_price + auction.min_bid_increment }}
+                                (Min increment: ${{ auction.min_bid_increment }})
+                            </small>
+                        </form>
+                    {% endif %}
+                    
+                    <!-- Watchlist -->
+                    {% if current_user.is_authenticated and current_user.user_type == 'buyer' %}
+                        {% if in_watchlist %}
+                            <form method="POST" action="{{ url_for('remove_from_watchlist', auction_id=auction.auction_id) }}" class="mt-2">
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="fas fa-heart"></i> Remove from Watchlist
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('add_to_watchlist', auction_id=auction.auction_id) }}" class="mt-2">
+                                <button type="submit" class="btn btn-outline-primary w-100">
+                                    <i class="far fa-heart"></i> Add to Watchlist
+                                </button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bids History -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list"></i> Bid History ({{ bids|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if bids %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Bidder</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bid in bids %}
+                                    <tr>
+                                        <td>{{ loop.index }}</td>
+                                        <td>{{ bid.first_name }} {{ bid.last_name }}</td>
+                                        <td><strong>${{ bid.bid_amount }}</strong></td>
+                                        <td>{{ bid.bid_time }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No bids placed yet. Be the first to bid!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Countdown Timer
+document.addEventListener('DOMContentLoaded', function() {
+    const countdownEl = document.getElementById('countdown');
+    if (countdownEl) {
+        const endDate = countdownEl.dataset.end;
+        
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const end = new Date(endDate).getTime();
+            const distance = end - now;
+            
+            if (distance < 0) {
+                countdownEl.innerHTML = 'Auction Closed';
+                countdownEl.className = 'text-danger';
+                return;
+            }
+            
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        }
+        
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    }
+});
+</script>
+{% endblock %}

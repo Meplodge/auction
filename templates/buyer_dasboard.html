@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Buyer Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-shopping-cart"></i> Buyer Dashboard</h2>
+    <hr>
+    
+    <!-- Watchlist -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="fas fa-heart text-danger"></i> Watchlist</h5>
+        </div>
+        <div class="card-body">
+            {% if watchlist %}
+            <div class="row">
+                {% for item in watchlist %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6>{{ item.title }}</h6>
+                            <p class="text-muted">Current: ${{ item.current_price }}</p>
+                            <span class="badge bg-{{ 'success' if item.auction_status == 'active' else 'danger' }}">
+                                {{ item.auction_status|upper }}
+                            </span>
+                            <div class="mt-2">
+                                <a href="{{ url_for('auction_details', auction_id=item.auction_id) }}" 
+                                   class="btn btn-sm btn-primary">View</a>
+                                <form method="POST" action="{{ url_for('remove_from_watchlist', auction_id=item.auction_id) }}" 
+                                      style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Your watchlist is empty.</p>
+            <a href="{{ url_for('search') }}" class="btn btn-primary">Browse Auctions</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- My Bids -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="fas fa-hand-paper"></i> My Bids</h5>
+        </div>
+        <div class="card-body">
+            {% if my_bids %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Auction</th>
+                            <th>Bid Amount</th>
+                            <th>Highest Bid</th>
+                            <th>Status</th>
+                            <th>End Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in my_bids %}
+                        <tr>
+                            <td>{{ bid.title }}</td>
+                            <td><strong>${{ bid.bid_amount }}</strong></td>
+                            <td>${{ bid.highest_bid }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if bid.auction_status == 'active' else 'danger' }}">
+                                    {{ bid.auction_status|upper }}
+                                </span>
+                            </td>
+                            <td>{{ bid.end_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">You haven't placed any bids yet.</p>
+            <a href="{{ url_for('search') }}" class="btn btn-primary">Start Bidding</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- My Wins -->
+    <div class="card mt-4">
+        <div class="card-header bg-success text-white">
+            <h5><i class="fas fa-trophy"></i> My Wins</h5>
+        </div>
+        <div class="card-body">
+            {% if wins %}
+            <div class="row">
+                {% for win in wins %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6>{{ win.title }}</h6>
+                            <p class="text-muted">Seller: {{ win.seller_first_name }} {{ win.seller_last_name }}</p>
+                            <p><strong>Winning Bid: ${{ win.current_price }}</strong></p>
+                            <a href="{{ url_for('payments') }}" class="btn btn-sm btn-success">View Payment</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">You haven't won any auctions yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

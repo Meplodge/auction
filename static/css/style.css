@@ -1,0 +1,148 @@
+/* General Styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f9fa;
+}
+
+footer {
+    margin-top: auto;
+}
+
+/* Card Hover Effect */
+.card {
+    transition: transform 0.3s, box-shadow 0.3s;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Hero Section */
+.jumbotron {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px !important;
+}
+
+/* Dashboard Stats */
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+.stat-card:hover {
+    transform: scale(1.02);
+}
+
+.stat-card .icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.stat-card .number {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+/* Bid Form */
+.bid-input-group {
+    max-width: 400px;
+}
+
+/* Responsive Images */
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* Alert Messages */
+.alert {
+    border-radius: 10px;
+}
+
+/* Navigation */
+.navbar-brand i {
+    margin-right: 10px;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 5px;
+    padding: 8px 20px;
+}
+
+/* Tables */
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+/* Form Controls */
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Countdown Timer */
+#countdown {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #dc3545;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .jumbotron {
+        padding: 2rem !important;
+    }
+    
+    .jumbotron h1 {
+        font-size: 2rem !important;
+    }
+    
+    .stat-card .number {
+        font-size: 1.5rem;
+    }
+    
+    .card-img-top {
+        height: 150px;
+    }
+}
+
+/* Auction Status Badges */
+.badge {
+    font-size: 0.8rem;
+    padding: 5px 12px;
+}
+
+/* Watchlist Heart */
+.heart-icon {
+    color: #dc3545;
+}
+
+/* Payment Modal */
+.modal-content {
+    border-radius: 15px;
+}
+
+/* Loading Spinner */
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

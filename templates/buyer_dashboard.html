@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Buyer Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-3">Buyer Dashboard</h2>
+    <p class="text-muted">Welcome, {{ current_user.first_name }} {{ current_user.last_name }}.</p>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">My Bids</h5>
+                    {% if my_bids %}
+                        <ul class="list-group list-group-flush">
+                            {% for bid in my_bids %}
+                                <li class="list-group-item">
+                                    <strong>{{ bid.title }}</strong><br>
+                                    Bid: ${{ bid.bid_amount }}<br>
+                                    Status: {{ bid.auction_status }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">You have not placed any bids yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Watchlist</h5>
+                    {% if watchlist %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in watchlist %}
+                                <li class="list-group-item">
+                                    <strong>{{ item.title }}</strong><br>
+                                    Price: ${{ item.current_price }}<br>
+                                    Ends: {{ item.end_date }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">Your watchlist is empty.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">My Wins</h5>
+                    {% if wins %}
+                        <ul class="list-group list-group-flush">
+                            {% for auction in wins %}
+                                <li class="list-group-item">
+                                    <strong>{{ auction.title }}</strong><br>
+                                    Status: Closed<br>
+                                    Ended: {{ auction.end_date }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">You have not won any auctions yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

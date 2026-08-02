@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-user"></i> My Profile</h2>
+    <hr>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="fas fa-user-circle" style="font-size: 100px; color: #667eea;"></i>
+                    </div>
+                    <h4>{{ user.first_name }} {{ user.last_name }}</h4>
+                    <p class="text-muted">@{{ user.username }}</p>
+                    <p><span class="badge bg-info">{{ user.user_type|upper }}</span></p>
+                    <p><i class="fas fa-envelope"></i> {{ user.email }}</p>
+                    <p><i class="fas fa-phone"></i> {{ user.phone or 'Not provided' }}</p>
+                    <p><i class="fas fa-calendar"></i> Joined: {{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Edit Profile</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" 
+                                       value="{{ user.first_name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" 
+                                       value="{{ user.last_name }}" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ user.phone or '' }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Profile</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>Account Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+                    {% if current_user.user_type == 'seller' %}
+                        <a href="{{ url_for('create_auction') }}" class="btn btn-success">Create Auction</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
