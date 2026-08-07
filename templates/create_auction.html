@@ -21,13 +21,16 @@
                             <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="category" class="form-label">Category</label>
-                            <select class="form-select" id="category" name="category">
-                                <option value="">Select Category</option>
-                                {% for category in categories %}
-                                <option value="{{ category }}">{{ category }}</option>
-                                {% endfor %}
-                            </select>
+    <label for="category" class="form-label">Category</label>
+    <select class="form-select" id="category" name="category" required>
+        <option value="">Select Category</option>
+
+        <option value="Valuables and Collections">Valuables and Collections</option>
+        <option value="Home and Property">Home and Property</option>
+        <option value="Vehicle and Transport">Vehicle and Transport</option>
+        <option value="Business and Industrial">Business and Industrial</option>
+        <option value="Specialty Items">Specialty Items</option>
+    </select>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
