@@ -460,7 +460,7 @@ def create_auction():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        title = request.form.get('title', '').strip()
+        title  = request.form.get('title', '').strip()
         description = request.form.get('description', '').strip()
         category = request.form.get('category', '').strip()
         starting_price = request.form.get('starting_price')
@@ -468,7 +468,7 @@ def create_auction():
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
         
-        if not all([title, description, starting_price, start_date, end_date]):
+        if not all([title, description, starting_price, start_date, end_date]): # type: ignore
             flash('All fields are required.', 'danger')
             return render_template('create_auction.html', categories=get_categories())
         

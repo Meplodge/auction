@@ -13,24 +13,24 @@
                 <div class="card-body">
                     <form method="POST" enctype="multipart/form-data">
                         <div class="mb-3">
-                            <label for="title" class="form-label">Title</label>
+                            <label for="title" class="form-label">Item no</label>
                             <input type="text" class="form-control" id="title" name="title" required>
                         </div>
                         <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">Select Category</option>
+                            
+                                <option value="Valuables and Collections">Valuables and Collections</option>
+                                <option value="Home and Property">Home and Property</option>
+                                <option value="Vehicle and Transport">Vehicle and Transport</option>
+                                <option value="Business and Industrial">Business and Industrial</option>
+                                <option value="Specialty Items">Specialty Items</option>
+                            </select>
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
                         </div>
                         <div class="mb-3">
-    <label for="category" class="form-label">Category</label>
-    <select class="form-select" id="category" name="category" required>
-        <option value="">Select Category</option>
-
-        <option value="Valuables and Collections">Valuables and Collections</option>
-        <option value="Home and Property">Home and Property</option>
-        <option value="Vehicle and Transport">Vehicle and Transport</option>
-        <option value="Business and Industrial">Business and Industrial</option>
-        <option value="Specialty Items">Specialty Items</option>
-    </select>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">

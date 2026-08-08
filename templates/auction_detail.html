@@ -44,7 +44,7 @@
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start">
-                        <h2>{{ auction.title }}</h2>
+                        <h2>{{ auction.item_number }}</h2>
                         <span class="badge bg-{{ 'success' if auction.status == 'active' else 'danger' }} fs-6 p-2">
                             {{ auction.status|upper }}
                         </span>

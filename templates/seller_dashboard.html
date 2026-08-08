@@ -57,7 +57,7 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Title</th>
+                            <th>Item Number</th>
                             <th>Category</th>
                             <th>Starting Price</th>
                             <th>Current Price</th>
@@ -69,7 +69,7 @@
                     <tbody>
                         {% for auction in auctions %}
                         <tr>
-                            <td>{{ auction.title }}</td>
+                            <td>{{ auction.item_number }}</td>
                             <td>{{ auction.category or 'Uncategorized' }}</td>
                             <td>${{ auction.starting_price }}</td>
                             <td>${{ auction.current_price }}</td>
