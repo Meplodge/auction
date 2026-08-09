@@ -73,18 +73,22 @@
                             {{ payment.payment_date.strftime('%d %b %Y') if payment.payment_date else 'Due' }}
                         </td>
                         <td class="text-end">
-                            {% if payment.payment_status == 'pending' %}
-                            <button type="button" class="btn btn-accent btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#pay{{ payment.payment_id }}">
-                                {{ 'Record' if is_admin else 'Pay' }}
-                            </button>
-                            {% elif is_admin %}
-                            <form method="POST" action="{{ url_for('admin_reopen_payment', payment_id=payment.payment_id) }}">
-                                <button type="submit" class="btn btn-quiet btn-sm">Reopen</button>
-                            </form>
-                            {% else %}
-                            <span class="t-quiet"><i class="fas fa-check" style="font-size:.75rem"></i></span>
-                            {% endif %}
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ url_for('view_invoice', payment_id=payment.payment_id) }}"
+                                   class="btn btn-quiet btn-sm" title="View invoice">
+                                    <i class="fas fa-file-invoice"></i> View
+                                </a>
+                                {% if payment.payment_status == 'pending' %}
+                                <button type="button" class="btn btn-accent btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#pay{{ payment.payment_id }}">
+                                    {{ 'Record' if is_admin else 'Pay' }}
+                                </button>
+                                {% elif is_admin %}
+                                <form method="POST" action="{{ url_for('admin_reopen_payment', payment_id=payment.payment_id) }}">
+                                    <button type="submit" class="btn btn-quiet btn-sm">Reopen</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

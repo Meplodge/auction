@@ -989,6 +989,48 @@ def payments():
         flash('Error loading payments.', 'danger')
         return render_template('payments.html', payments=[], is_admin=is_admin)
 
+
+@app.route('/invoice/<int:payment_id>')
+@login_required
+def view_invoice(payment_id):
+    """View a single invoice — buyers see their own, admins see any."""
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            SELECT p.*, a.title as auction_title, a.auction_id, a.description,
+                   a.category, a.starting_price, a.current_price,
+                   u.first_name as seller_first_name, u.last_name as seller_last_name,
+                   u.email as seller_email, u.phone as seller_phone,
+                   b.first_name as buyer_first_name, b.last_name as buyer_last_name,
+                   b.email as buyer_email, b.phone as buyer_phone,
+                   b.username as buyer_username
+            FROM payments p
+            JOIN auctions a ON p.auction_id = a.auction_id
+            JOIN users u ON p.seller_id = u.user_id
+            JOIN users b ON p.buyer_id = b.user_id
+            WHERE p.payment_id = %s
+        """, (payment_id,))
+        invoice = cur.fetchone()
+        cur.close()
+
+        if not invoice:
+            flash('Invoice not found.', 'danger')
+            return redirect(url_for('payments'))
+
+        # Buyers can only view their own invoices; admins can view any
+        if current_user.user_type != 'admin' and invoice['buyer_id'] != current_user.id:
+            flash('You can only view your own invoices.', 'danger')
+            return redirect(url_for('payments'))
+
+        # Generate a human-friendly invoice number
+        invoice_no = f"INV-{invoice['payment_id']:05d}"
+
+        return render_template('invoice.html', invoice=invoice, invoice_no=invoice_no)
+    except Exception as e:
+        print(f"Invoice error: {e}")
+        flash('Error loading invoice.', 'danger')
+        return redirect(url_for('payments'))
+
 # ============================================
 # ADMIN LOT MANAGEMENT
 # ============================================
