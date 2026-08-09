@@ -1,70 +1,147 @@
 {% extends "base.html" %}
 
-{% block title %}Create Auction{% endblock %}
+{% block title %}Consign an item — Auction House{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-warning">
-                    <h4 class="mb-0"><i class="fas fa-gavel"></i> Create Auction</h4>
-                </div>
-                <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Item no</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
+<div class="container">
+
+    <header class="masthead">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <span class="overline overline-accent mb-2">Seller account</span>
+                <h1>Consign an item</h1>
+                <p class="lede">Describe the lot, set your opening bid and closing time. It goes live immediately.</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('seller_dashboard') }}" class="overline overline-ink link-underline">Back to consignments</a>
+            </div>
+        </div>
+    </header>
+
+    <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+        <div class="row g-5">
+            <div class="col-lg-7">
+                <!-- Description -->
+                <section class="reveal">
+                    <div class="fieldset-title"><span class="n">01</span><span>The lot</span></div>
+
+                    <div class="mb-4">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" name="title"
+                               placeholder="e.g. Vintage Rolex Submariner Watch" maxlength="255" required>
+                        <div class="form-text">How the lot appears in the catalogue.</div>
+                        <div class="invalid-feedback">Give the lot a title.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="category" class="form-label">Department</label>
+                        <select class="form-select" id="category" name="category" required>
+                            <option value="">Select a department</option>
+                            {% set preset = ['Valuables and Collections', 'Home and Property',
+                                             'Vehicle and Transport', 'Business and Industrial', 'Specialty Items'] %}
+                            {% for cat in (categories|default([]) + preset)|unique|sort %}
+                                <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Choose a department.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="description" class="form-label">Catalogue note</label>
+                        <textarea class="form-control" id="description" name="description" rows="7"
+                                  placeholder="Condition, provenance, dimensions, maker's marks, anything a bidder should know."
+                                  required></textarea>
+                        <div class="invalid-feedback">Describe the lot.</div>
+                    </div>
+                </section>
+
+                <!-- Images -->
+                <section class="mt-5 reveal">
+                    <div class="fieldset-title"><span class="n">02</span><span>Photographs</span></div>
+
+                    <div class="dropzone">
+                        <i class="far fa-images"></i>
+                        <div class="overline overline-ink mb-1">Drop images here</div>
+                        <div class="small-print hint" data-default="or select files — the first becomes the catalogue image">
+                            or select files — the first becomes the catalogue image
                         </div>
-                        <div class="mb-3">
-                            <label for="category" class="form-label">Category</label>
-                            <select class="form-select" id="category" name="category" required>
-                                <option value="">Select Category</option>
-                            
-                                <option value="Valuables and Collections">Valuables and Collections</option>
-                                <option value="Home and Property">Home and Property</option>
-                                <option value="Vehicle and Transport">Vehicle and Transport</option>
-                                <option value="Business and Industrial">Business and Industrial</option>
-                                <option value="Specialty Items">Specialty Items</option>
-                            </select>
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                        <input type="file" id="images" name="images" multiple accept="image/*">
+                    </div>
+
+                    <div id="image-preview-container" class="d-flex flex-wrap gap-2 mt-3"></div>
+                </section>
+            </div>
+
+            <!-- Terms rail -->
+            <div class="col-lg-5">
+                <div style="position:sticky;top:100px">
+                    <section class="reveal">
+                        <div class="fieldset-title"><span class="n">03</span><span>Bidding terms</span></div>
+
+                        <div class="mb-4">
+                            <label for="starting_price" class="form-label">Opening bid (USD)</label>
+                            <input type="number" class="form-control" id="starting_price" name="starting_price"
+                                   step="0.01" min="0" placeholder="0.00" required>
+                            <div class="form-text">The lowest bid you will accept.</div>
+                            <div class="invalid-feedback">Set an opening bid.</div>
                         </div>
-                        <div class="mb-3">
+
+                        <div class="mb-4">
+                            <label for="min_bid_increment" class="form-label">Bid increment (USD)</label>
+                            <input type="number" class="form-control" id="min_bid_increment" name="min_bid_increment"
+                                   step="0.01" min="0.01" value="1.00" required>
+                            <div class="form-text">The minimum a bidder must raise by.</div>
+                            <div class="invalid-feedback">Set an increment.</div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="starting_price" class="form-label">Starting Price ($)</label>
-                                <input type="number" class="form-control" id="starting_price" name="starting_price" 
-                                       step="0.01" min="0" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="min_bid_increment" class="form-label">Min Bid Increment ($)</label>
-                                <input type="number" class="form-control" id="min_bid_increment" name="min_bid_increment" 
-                                       step="0.01" min="0.01" value="1.00" required>
-                            </div>
+                    </section>
+
+                    <section class="mt-5 reveal">
+                        <div class="fieldset-title"><span class="n">04</span><span>Schedule</span></div>
+
+                        <div class="mb-4">
+                            <label for="start_date" class="form-label">Bidding opens</label>
+                            <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
+                            <div class="invalid-feedback">Choose an opening time.</div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="start_date" class="form-label">Start Date</label>
-                                <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="end_date" class="form-label">End Date</label>
-                                <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
-                            </div>
+
+                        <div class="mb-4">
+                            <label for="end_date" class="form-label">Bidding closes</label>
+                            <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
+                            <div class="form-text">The lot closes automatically at this time.</div>
+                            <div class="invalid-feedback">Choose a closing time.</div>
                         </div>
-                        <div class="mb-3">
-                            <label for="images" class="form-label">Images</label>
-                            <input type="file" class="form-control" id="images" name="images" multiple accept="image/*">
-                            <div class="form-text">Upload multiple images. First image will be primary.</div>
-                        </div>
-                        <button type="submit" class="btn btn-warning">Create Auction</button>
-                        <a href="{{ url_for('seller_dashboard') }}" class="btn btn-secondary">Cancel</a>
-                    </form>
+                    </section>
+
+                    <div class="mt-4 pt-3" style="border-top:1px solid var(--ink)">
+                        <button type="submit" class="btn btn-primary btn-block btn-lg">Publish lot</button>
+                        <a href="{{ url_for('seller_dashboard') }}" class="btn btn-quiet btn-block mt-2">Cancel</a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Sensible defaults: opens now, closes in seven days
+document.addEventListener('DOMContentLoaded', function () {
+    const pad = n => String(n).padStart(2, '0');
+    const toLocal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    const start = document.getElementById('start_date');
+    const end = document.getElementById('end_date');
+    const now = new Date();
+
+    if (start && !start.value) start.value = toLocal(now);
+    if (end && !end.value) end.value = toLocal(new Date(now.getTime() + 7 * 86400000));
+
+    if (start && end) {
+        const sync = () => { end.min = start.value; };
+        start.addEventListener('change', sync);
+        sync();
+    }
+});
+</script>
 {% endblock %}

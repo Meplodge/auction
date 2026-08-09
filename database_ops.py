@@ -88,7 +88,7 @@ def initialize_database(app):
         CREATE TABLE IF NOT EXISTS auctions (
             auction_id INT AUTO_INCREMENT PRIMARY KEY,
             seller_id INT NOT NULL,
-            item_number VARCHAR(255) NOT NULL,
+            title VARCHAR(255) NOT NULL,
             description TEXT,
             category VARCHAR(100),
             starting_price DECIMAL(10,2) NOT NULL,

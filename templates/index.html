@@ -1,71 +1,165 @@
 {% extends "base.html" %}
+{% from "_macros.html" import lot_card, blank, mark %}
 
-{% block title %}Home - Auction System{% endblock %}
+{% block title %}Auction House — Live lots{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <!-- Hero Section -->
-    <div class="jumbotron bg-primary text-white p-5 rounded mb-4">
-        <h1 class="display-4">Welcome to Auction System</h1>
-        <p class="lead">Bid on amazing items, sell your products, and find great deals!</p>
-        <hr class="my-4">
-        <p>Join thousands of happy buyers and sellers.</p>
-        {% if not current_user.is_authenticated %}
-            <a class="btn btn-light btn-lg" href="{{ url_for('register') }}">Get Started</a>
-        {% endif %}
-    </div>
+{% set live = auctions|selectattr('status', 'equalto', 'active')|list %}
+{% set featured = live[0] if live else (auctions[0] if auctions else none) %}
+{% set rest = auctions|rejectattr('auction_id', 'equalto', featured.auction_id)|list if featured else [] %}
 
-    <!-- Categories -->
-    <div class="mb-4">
-        <h5>Browse Categories:</h5>
-        <div class="d-flex flex-wrap gap-2">
-            {% for category in categories %}
-                <a href="{{ url_for('search', category=category) }}" class="btn btn-outline-primary">
-                    {{ category }}
-                </a>
-            {% endfor %}
-        </div>
-    </div>
+<div class="container">
 
-    Active Auctions
-    <h2 class="mb-4"><i class="fas fa-fire"></i> Active Auctions</h2>
-    <div class="row">
-        {% if auctions %}
-            {% for auction in auctions %}
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    {% if auction.primary_image %}
-                        <img src="{{ url_for('static', filename='uploads/' + auction.primary_image) }}" 
-                             class="card-img-top" alt="{{ auction.title }}" 
-                             style="height: 200px; object-fit: cover;">
-                    {% else %}
-                        <img src="https://via.placeholder.com/300x200?text=No+Image" 
-                             class="card-img-top" alt="No image">
+    <!-- Opening statement -->
+    <section class="pt-5 pb-4 reveal">
+        <div class="row align-items-end g-4">
+            <div class="col-lg-7">
+                <span class="overline overline-accent mb-3">Now open for bidding</span>
+                <h1 class="display mb-0">
+                    Objects worth<br>bidding&nbsp;on.
+                </h1>
+            </div>
+            <div class="col-lg-5">
+                <p class="lede mb-0">
+                    A timed marketplace for collectors, dealers and everyday sellers.
+                    Browse the current sale, place a bid, and follow it to the close.
+                </p>
+                <div class="d-flex flex-wrap gap-3 mt-4">
+                    <a href="{{ url_for('search') }}" class="btn btn-primary">View all lots</a>
+                    {% if not current_user.is_authenticated %}
+                        <a href="{{ url_for('register') }}" class="btn btn-outline">Open an account</a>
+                    {% elif current_user.user_type in ['seller', 'admin'] %}
+                        <a href="{{ url_for('create_auction') }}" class="btn btn-outline">Consign an item</a>
                     {% endif %}
-                    <div class="card-body">
-                        <span class="badge bg-{{ 'success' if auction.status == 'active' else 'danger' }} float-end">
-                            {{ auction.status|upper }}
-                        </span>
-                        <h5 class="card-title">{{ auction.title }}</h5>
-                        <p class="card-text text-muted">{{ auction.category }}</p>
-                        <p class="card-text">{{ auction.description[:80] }}{% if auction.description|length > 80 %}...{% endif %}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="h5 text-primary">${{ auction.current_price }}</span>
-                            <small class="text-muted">{{ auction.total_bids }} bids</small>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <a href="{{ url_for('auction_details', auction_id=auction.auction_id) }}" 
-                           class="btn btn-primary w-100">View Auction</a>
-                    </div>
                 </div>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12">
-                <div class="alert alert-info">No active auctions at the moment.</div>
+        </div>
+    </section>
+
+    <!-- Featured lot -->
+    {% if featured %}
+    <section class="feature reveal">
+        <div class="feature-copy">
+            <span class="overline">Featured &mdash; Lot {{ '%03d'|format(featured.auction_id) }}</span>
+            <h2>{{ featured.title }}</h2>
+
+            <p class="lede" style="max-width:46ch">
+                {{ (featured.description or '')|truncate(180, true, '…') }}
+            </p>
+
+            <div class="feature-figures">
+                <div class="figure-block">
+                    <span class="overline">{{ 'Current bid' if featured.total_bids else 'Opening bid' }}</span>
+                    <span class="value">${{ "{:,.0f}".format(featured.current_price) }}</span>
+                </div>
+                <div class="figure-block">
+                    <span class="overline">Bids</span>
+                    <span class="value">{{ featured.total_bids or 0 }}</span>
+                </div>
+                {% if featured.status == 'active' and featured.end_date %}
+                <div class="figure-block">
+                    <span class="overline">Closes in</span>
+                    <span class="value" data-countdown="{{ featured.end_date }}">&mdash;</span>
+                </div>
+                {% endif %}
             </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-4">
+                <a href="{{ url_for('auction_details', auction_id=featured.auction_id) }}" class="btn btn-primary">
+                    View this lot
+                </a>
+                {{ mark(featured.status) }}
+            </div>
+        </div>
+
+        <div class="feature-media">
+            {% if featured.primary_image %}
+                <img src="{{ url_for('static', filename='uploads/' + featured.primary_image) }}"
+                     alt="{{ featured.title }}">
+            {% else %}
+                <span class="no-image"><i class="far fa-image"></i></span>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Categories -->
+    {% if categories %}
+    <section class="mt-5 reveal">
+        <div class="rail">
+            <a href="{{ url_for('search') }}" class="is-on">All departments</a>
+            {% for category in categories %}
+                <a href="{{ url_for('search', category=category) }}">{{ category }}</a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Current sale -->
+    <section class="mt-5 pt-3">
+        <div class="section-head reveal">
+            <div class="head-text">
+                <span class="overline">The current sale</span>
+                <h2 class="display-sm mb-0">{{ auctions|length }} lots</h2>
+            </div>
+            <div class="head-rule"></div>
+            <div class="head-action">
+                <a href="{{ url_for('search') }}" class="link-underline overline overline-ink">Browse all</a>
+            </div>
+        </div>
+
+        {% if rest %}
+        <div class="row g-4 g-lg-0 lot-grid">
+            {% for auction in rest %}
+            <div class="col-6 col-lg-4 col-xl-3 px-lg-4 mb-lg-5">
+                {{ lot_card(auction, delay=loop.index0 * 55) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% elif not featured %}
+            {{ blank('fa-gavel', 'No lots in this sale',
+                     'Nothing is open for bidding just yet. Please check back shortly.',
+                     url_for('create_auction') if current_user.is_authenticated and current_user.user_type in ['seller','admin'] else url_for('register'),
+                     'Consign an item' if current_user.is_authenticated and current_user.user_type in ['seller','admin'] else 'Open an account') }}
         {% endif %}
-    </div>
+    </section>
+
+    <!-- Bidding, explained -->
+    <section class="pad-y">
+        <div class="row g-5">
+            <div class="col-lg-4">
+                <span class="overline overline-accent">How bidding works</span>
+                <h2 class="display-sm mt-3">Four steps,<br>no small print.</h2>
+                <p class="lede">
+                    Every lot runs to a published closing time. The highest bid on the clock takes it.
+                </p>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="stack-lines">
+                    {% set steps = [
+                        ('01', 'Register', 'Open a buyer account to bid, or a seller account to consign your own items. It takes a minute.'),
+                        ('02', 'Browse the sale', 'Filter by department, price or closing time. Save the lots you want to follow.'),
+                        ('03', 'Place your bid', 'Bid above the current price by at least the stated increment. You can raise it any time before the close.'),
+                        ('04', 'Settle up', 'Win the lot and the invoice appears in your account, ready to pay.')
+                    ] %}
+                    {% for n, title, text in steps %}
+                    <div class="row g-3 py-4 reveal" data-reveal-delay="{{ loop.index0 * 60 }}">
+                        <div class="col-2 col-md-1">
+                            <span class="overline">{{ n }}</span>
+                        </div>
+                        <div class="col-10 col-md-3">
+                            <h3 class="title-md mb-0">{{ title }}</h3>
+                        </div>
+                        <div class="col-12 col-md-8">
+                            <p class="mb-0" style="color:var(--ink-60)">{{ text }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
 </div>
 {% endblock %}

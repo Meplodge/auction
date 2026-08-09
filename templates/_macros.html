@@ -1,0 +1,91 @@
+{# ============================================================
+   Shared UI macros
+   ============================================================ #}
+
+{# Status mark. style: 'dot' (default) or 'box' #}
+{% macro mark(status, style='dot') %}
+    {% set cls = 'is-live' if status == 'active' else ('is-closed' if status == 'closed' else 'is-draft') %}
+    {% set label = 'Open for bidding' if status == 'active' else ('Closed' if status == 'closed' else 'Draft') %}
+    {% if style == 'box' %}
+        <span class="mark-box {{ cls }}">{{ 'Live' if status == 'active' else label }}</span>
+    {% else %}
+        <span class="mark {{ cls }}">{{ label }}</span>
+    {% endif %}
+{% endmacro %}
+
+
+{# Lot card for the grids #}
+{% macro lot_card(auction, delay=0) %}
+<article class="lot reveal" data-reveal-delay="{{ delay }}">
+    <div class="lot-media">
+        {% if auction.primary_image %}
+            <img src="{{ url_for('static', filename='uploads/' + auction.primary_image) }}"
+                 alt="{{ auction.title }}" loading="lazy">
+        {% else %}
+            <span class="no-image"><i class="far fa-image"></i></span>
+        {% endif %}
+
+        {% if auction.status == 'active' %}
+            <span class="lot-tag is-live">Live</span>
+        {% elif auction.status == 'closed' %}
+            <span class="lot-tag is-closed">Closed</span>
+        {% else %}
+            <span class="lot-tag">Draft</span>
+        {% endif %}
+
+        {% if auction.image_count and auction.image_count > 1 %}
+            <span class="lot-count">{{ auction.image_count }} images</span>
+        {% endif %}
+    </div>
+
+    <div class="lot-body">
+        <div class="lot-meta">
+            <span class="lot-no">Lot {{ '%03d'|format(auction.auction_id) }}</span>
+            {% if auction.category %}<span class="lot-cat">{{ auction.category }}</span>{% endif %}
+        </div>
+
+        <h3 class="lot-title">{{ auction.title }}</h3>
+
+        <div class="lot-figures">
+            <div>
+                <span class="overline">{{ 'Current bid' if auction.total_bids else 'Opening bid' }}</span>
+                <span class="lot-price">${{ "{:,.0f}".format(auction.current_price) }}</span>
+            </div>
+            <div class="lot-bids">
+                {% if auction.status == 'active' and auction.end_date %}
+                    <span data-countdown="{{ auction.end_date }}">&mdash;</span><br>
+                {% endif %}
+                {{ auction.total_bids or 0 }} bid{{ '' if auction.total_bids == 1 else 's' }}
+            </div>
+        </div>
+    </div>
+
+    <a href="{{ url_for('auction_details', auction_id=auction.auction_id) }}"
+       class="stretch-link" aria-label="View {{ auction.title }}"></a>
+</article>
+{% endmacro %}
+
+
+{# Empty state #}
+{% macro blank(icon, title, message, action_url=none, action_label=none) %}
+<div class="blank">
+    <i class="fas {{ icon }}"></i>
+    <h5>{{ title }}</h5>
+    <p>{{ message }}</p>
+    {% if action_url and action_label %}
+        <a href="{{ action_url }}" class="btn btn-outline btn-sm">{{ action_label }}</a>
+    {% endif %}
+</div>
+{% endmacro %}
+
+
+{# Statistic cell for dashboards #}
+{% macro figure_cell(label, value, trail='', prefix='', decimals=0) %}
+<div class="figure-cell">
+    <span class="overline">{{ label }}</span>
+    <div class="value" data-count="{{ value or 0 }}" data-count-prefix="{{ prefix }}" data-count-decimals="{{ decimals }}">
+        {{ prefix }}0
+    </div>
+    {% if trail %}<div class="trail">{{ trail }}</div>{% endif %}
+</div>
+{% endmacro %}

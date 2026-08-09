@@ -1,121 +1,115 @@
 {% extends "base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Administration — Auction House{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2><i class="fas fa-chart-bar"></i> Admin Dashboard</h2>
-    <hr>
-    
-    <div class="row">
-        <div class="col-md-3 mb-3">
-            <div class="card text-white bg-primary">
-                <div class="card-body">
-                    <h5 class="card-title">Total Users</h5>
-                    <h2>{{ stats.total_users }}</h2>
-                </div>
+<div class="container">
+
+    <header class="masthead">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <span class="overline overline-accent mb-2">Administration</span>
+                <h1>House overview</h1>
+                <p class="lede">Registrations, consignments and bidding activity across the platform.</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('search', status='all') }}" class="btn btn-outline btn-sm">Full catalogue</a>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card text-white bg-success">
-                <div class="card-body">
-                    <h5 class="card-title">Total Auctions</h5>
-                    <h2>{{ stats.total_auctions }}</h2>
+    </header>
+
+    <!-- Figures -->
+    <section class="figures-row reveal">
+        {{ figure_cell('Registered users', stats.total_users) }}
+        {{ figure_cell('Lots consigned', stats.total_auctions) }}
+        {{ figure_cell('Open for bidding', stats.active_auctions) }}
+        {{ figure_cell('Bids received', stats.total_bids) }}
+        {{ figure_cell('Settled', stats.total_revenue, prefix='$', decimals=2) }}
+    </section>
+
+    <!-- Activity -->
+    <div class="row g-5 mt-3">
+        <div class="col-lg-7">
+            <div class="section-head reveal">
+                <div class="head-text">
+                    <span class="overline">Latest activity</span>
+                    <h2 class="title-md mb-0">Recent bids</h2>
                 </div>
+                <div class="head-rule"></div>
             </div>
+
+            {% if recent_bids %}
+            <div class="table-responsive reveal">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Bidder</th>
+                            <th>Lot</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end">Placed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in recent_bids %}
+                        <tr>
+                            <td class="t-strong">{{ bid.username }}</td>
+                            <td class="t-quiet text-truncate" style="max-width:200px">{{ bid.auction_title }}</td>
+                            <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
+                            <td class="text-end t-quiet">
+                                {{ bid.bid_time.strftime('%d %b, %H:%M') if bid.bid_time else '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-gavel', 'No bids recorded', 'Bidding activity will be listed here as it happens.') }}
+            {% endif %}
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card text-white bg-warning">
-                <div class="card-body">
-                    <h5 class="card-title">Active Auctions</h5>
-                    <h2>{{ stats.active_auctions }}</h2>
+
+        <div class="col-lg-5">
+            <div class="section-head reveal">
+                <div class="head-text">
+                    <span class="overline">Membership</span>
+                    <h2 class="title-md mb-0">New accounts</h2>
                 </div>
+                <div class="head-rule"></div>
             </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card text-white bg-info">
-                <div class="card-body">
-                    <h5 class="card-title">Total Bids</h5>
-                    <h2>{{ stats.total_bids }}</h2>
-                </div>
+
+            {% if recent_users %}
+            <div class="table-responsive reveal">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th class="text-end">Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in recent_users %}
+                        <tr>
+                            <td>
+                                <span class="t-strong">{{ user.first_name }} {{ user.last_name }}</span>
+                            </td>
+                            <td>
+                                <span class="mark-box {{ 'is-accent' if user.user_type == 'admin' else ('is-draft' if user.user_type == 'seller' else 'is-closed') }}">
+                                    {{ user.user_type }}
+                                </span>
+                            </td>
+                            <td class="text-end t-quiet">
+                                {{ user.created_at.strftime('%d %b %Y') if user.created_at else '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card text-white bg-danger">
-                <div class="card-body">
-                    <h5 class="card-title">Total Revenue</h5>
-                    <h2>${{ "%.2f"|format(stats.total_revenue) }}</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-clock"></i> Recent Bids</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_bids %}
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Bidder</th>
-                                    <th>Amount</th>
-                                    <th>Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for bid in recent_bids %}
-                                <tr>
-                                    <td>{{ bid.username }}</td>
-                                    <td><strong>${{ bid.bid_amount }}</strong></td>
-                                    <td>{{ bid.bid_time }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted">No recent bids.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-users"></i> Recent Users</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_users %}
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Joined</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for user in recent_users %}
-                                <tr>
-                                    <td>{{ user.first_name }} {{ user.last_name }}</td>
-                                    <td><span class="badge bg-info">{{ user.user_type }}</span></td>
-                                    <td>{{ user.created_at }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted">No recent users.</p>
-                    {% endif %}
-                </div>
-            </div>
+            {% else %}
+                {{ blank('fa-user', 'No registrations', 'New accounts will appear here.') }}
+            {% endif %}
         </div>
     </div>
 </div>

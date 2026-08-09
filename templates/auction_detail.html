@@ -1,212 +1,269 @@
 {% extends "base.html" %}
+{% from "_macros.html" import mark, blank %}
 
-{% block title %}{{ auction.title }}{% endblock %}
+{% block title %}{{ auction.title }} — Lot {{ '%03d'|format(auction.auction_id) }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <!-- Images -->
-        <div class="col-md-6">
-            <div class="card">
+{% set min_bid = auction.current_price + auction.min_bid_increment %}
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('search') }}">Lots</a></li>
+            {% if auction.category %}
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('search', category=auction.category) }}">{{ auction.category }}</a>
+            </li>
+            {% endif %}
+            <li class="breadcrumb-item active">Lot {{ '%03d'|format(auction.auction_id) }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-5">
+        <!-- Viewer -->
+        <div class="col-lg-7">
+            <div class="viewer reveal">
                 {% if images %}
-                    <div id="auctionCarousel" class="carousel slide" data-bs-ride="carousel">
+                    <div id="lotViewer" class="carousel slide">
                         <div class="carousel-inner">
                             {% for image in images %}
                             <div class="carousel-item {% if loop.first %}active{% endif %}">
-                                <img src="{{ url_for('static', filename='uploads/' + image.image_url) }}" 
-                                     class="d-block w-100" alt="{{ auction.title }}" 
-                                     style="height: 400px; object-fit: contain;">
-                                {% if image.caption %}
-                                <div class="carousel-caption d-none d-md-block">
-                                    <p class="bg-dark p-2 rounded">{{ image.caption }}</p>
-                                </div>
-                                {% endif %}
+                                <img src="{{ url_for('static', filename='uploads/' + image.image_url) }}"
+                                     alt="{{ auction.title }} — view {{ loop.index }}">
                             </div>
                             {% endfor %}
                         </div>
                         {% if images|length > 1 %}
-                        <button class="carousel-control-prev" type="button" data-bs-target="#auctionCarousel" data-bs-slide="prev">
+                        <button class="carousel-control-prev" type="button" data-bs-target="#lotViewer" data-bs-slide="prev">
                             <span class="carousel-control-prev-icon"></span>
+                            <span class="visually-hidden">Previous</span>
                         </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#auctionCarousel" data-bs-slide="next">
+                        <button class="carousel-control-next" type="button" data-bs-target="#lotViewer" data-bs-slide="next">
                             <span class="carousel-control-next-icon"></span>
+                            <span class="visually-hidden">Next</span>
                         </button>
                         {% endif %}
                     </div>
                 {% else %}
-                    <img src="https://via.placeholder.com/600x400?text=No+Images" class="card-img-top" alt="No images">
+                    <div class="viewer-empty"><i class="far fa-image" style="font-size:2rem"></i></div>
                 {% endif %}
             </div>
+
+            {% if images|length > 1 %}
+            <div class="thumbs">
+                {% for image in images %}
+                <button type="button" data-bs-target="#lotViewer" data-bs-slide-to="{{ loop.index0 }}"
+                        class="{{ 'active' if loop.first }}" aria-label="View image {{ loop.index }}">
+                    <img src="{{ url_for('static', filename='uploads/' + image.image_url) }}" alt="">
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Catalogue note -->
+            <section class="mt-5 reveal">
+                <div class="fieldset-title"><span>Catalogue note</span></div>
+                <p style="white-space:pre-line;color:var(--ink-80)">{{ auction.description or 'No description provided for this lot.' }}</p>
+
+                <div class="spec-list mt-4">
+                    <div class="row-item">
+                        <span class="k">Opening bid</span>
+                        <span class="v">${{ "{:,.2f}".format(auction.starting_price) }}</span>
+                    </div>
+                    <div class="row-item">
+                        <span class="k">Bid increment</span>
+                        <span class="v">${{ "{:,.2f}".format(auction.min_bid_increment) }}</span>
+                    </div>
+                    <div class="row-item">
+                        <span class="k">Department</span>
+                        <span class="v">{{ auction.category or 'Uncategorised' }}</span>
+                    </div>
+                    <div class="row-item">
+                        <span class="k">Bidding opened</span>
+                        <span class="v">{{ auction.start_date.strftime('%d %B %Y, %H:%M') if auction.start_date else '—' }}</span>
+                    </div>
+                    <div class="row-item">
+                        <span class="k">Bidding closes</span>
+                        <span class="v">{{ auction.end_date.strftime('%d %B %Y, %H:%M') if auction.end_date else '—' }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bid history -->
+            <section class="mt-5 reveal">
+                <div class="section-head">
+                    <div class="head-text">
+                        <span class="overline">Bidding history</span>
+                        <h2 class="title-md mb-0">{{ bids|length }} bid{{ '' if bids|length == 1 else 's' }}</h2>
+                    </div>
+                    <div class="head-rule"></div>
+                </div>
+
+                {% if bids %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:60px">#</th>
+                                <th>Bidder</th>
+                                <th class="text-end">Amount</th>
+                                <th class="text-end">Placed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bid in bids %}
+                            <tr {% if loop.first %}class="is-leading"{% endif %}>
+                                <td><span class="rank {{ 'is-top' if loop.first }}">{{ '%02d'|format(loop.index) }}</span></td>
+                                <td>
+                                    <span class="t-strong">{{ bid.first_name }} {{ bid.last_name[0]|upper }}.</span>
+                                    {% if loop.first %}
+                                        <span class="mark-box is-accent ms-2">Leading</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
+                                <td class="text-end t-quiet">
+                                    {{ bid.bid_time.strftime('%d %b %Y, %H:%M') if bid.bid_time else '—' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    {{ blank('fa-gavel', 'No bids yet', 'This lot is waiting for its first bid.') }}
+                {% endif %}
+            </section>
         </div>
-        
-        <!-- Auction Details -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <h2>{{ auction.item_number }}</h2>
-                        <span class="badge bg-{{ 'success' if auction.status == 'active' else 'danger' }} fs-6 p-2">
-                            {{ auction.status|upper }}
+
+        <!-- Bidding rail -->
+        <div class="col-lg-5">
+            <div class="lot-rail reveal">
+                <span class="overline">Lot {{ '%03d'|format(auction.auction_id) }}
+                    {%- if auction.category %} &mdash; {{ auction.category }}{% endif %}</span>
+
+                <h1 class="display-sm mt-2 mb-3">{{ auction.title }}</h1>
+
+                <div class="mb-4">{{ mark(auction.status) }}</div>
+
+                <!-- Current bid -->
+                <div class="py-3" style="border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)">
+                    <span class="overline">{{ 'Current bid' if auction.total_bids else 'Opening bid' }}</span>
+                    <div class="d-flex align-items-end justify-content-between gap-3 mt-2">
+                        <span class="bid-figure">${{ "{:,.0f}".format(auction.current_price) }}</span>
+                        <span class="small-print num">
+                            {{ auction.total_bids or 0 }} bid{{ '' if auction.total_bids == 1 else 's' }}
                         </span>
                     </div>
-                    
-                    <p class="text-muted">Category: {{ auction.category or 'Uncategorized' }}</p>
-                    <p>{{ auction.description }}</p>
-                    
-                    <div class="mb-3">
-                        <div class="row">
-                            <div class="col-6">
-                                <strong>Starting Price:</strong>
-                                <span class="text-muted">${{ auction.starting_price }}</span>
-                            </div>
-                            <div class="col-6">
-                                <strong>Current Price:</strong>
-                                <span class="h4 text-primary">${{ auction.current_price }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="row">
-                            <div class="col-6">
-                                <strong>Seller:</strong>
-                                <span>{{ auction.first_name }} {{ auction.last_name }}</span>
-                            </div>
-                            <div class="col-6">
-                                <strong>Total Bids:</strong>
-                                <span>{{ auction.total_bids }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="row">
-                            <div class="col-6">
-                                <strong>Start Date:</strong>
-                                <small>{{ auction.start_date }}</small>
-                            </div>
-                            <div class="col-6">
-                                <strong>End Date:</strong>
-                                <small>{{ auction.end_date }}</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Countdown Timer -->
-                    {% if auction.status == 'active' %}
-                    <div class="alert alert-info">
-                        <strong>Time Remaining:</strong>
-                        <span id="countdown" data-end="{{ auction.end_date }}"></span>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Bidding Section -->
-                    {% if current_user.is_authenticated and current_user.user_type == 'buyer' and auction.status == 'active' %}
-                        <form method="POST" action="{{ url_for('place_bid') }}" class="mt-3">
-                            <input type="hidden" name="auction_id" value="{{ auction.auction_id }}">
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="bid_amount" 
-                                       step="0.01" min="{{ auction.current_price + auction.min_bid_increment }}" 
-                                       placeholder="Enter your bid" required>
-                                <button type="submit" class="btn btn-success">Place Bid</button>
-                            </div>
-                            <small class="text-muted">
-                                Minimum bid: ${{ auction.current_price + auction.min_bid_increment }}
-                                (Min increment: ${{ auction.min_bid_increment }})
-                            </small>
-                        </form>
-                    {% endif %}
-                    
-                    <!-- Watchlist -->
-                    {% if current_user.is_authenticated and current_user.user_type == 'buyer' %}
-                        {% if in_watchlist %}
-                            <form method="POST" action="{{ url_for('remove_from_watchlist', auction_id=auction.auction_id) }}" class="mt-2">
-                                <button type="submit" class="btn btn-danger w-100">
-                                    <i class="fas fa-heart"></i> Remove from Watchlist
-                                </button>
-                            </form>
-                        {% else %}
-                            <form method="POST" action="{{ url_for('add_to_watchlist', auction_id=auction.auction_id) }}" class="mt-2">
-                                <button type="submit" class="btn btn-outline-primary w-100">
-                                    <i class="far fa-heart"></i> Add to Watchlist
-                                </button>
-                            </form>
-                        {% endif %}
-                    {% endif %}
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Bids History -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-list"></i> Bid History ({{ bids|length }})</h5>
+
+                <!-- Countdown -->
+                {% if auction.status == 'active' %}
+                <div class="timer">
+                    <span class="overline">Closes in</span>
+                    <span class="value" data-countdown="{{ auction.end_date }}">&mdash;</span>
                 </div>
-                <div class="card-body">
-                    {% if bids %}
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Bidder</th>
-                                        <th>Amount</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for bid in bids %}
-                                    <tr>
-                                        <td>{{ loop.index }}</td>
-                                        <td>{{ bid.first_name }} {{ bid.last_name }}</td>
-                                        <td><strong>${{ bid.bid_amount }}</strong></td>
-                                        <td>{{ bid.bid_time }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                {% else %}
+                <div class="timer">
+                    <span class="overline">Sale closed</span>
+                    <span class="value" style="font-size:1rem;color:var(--ink-60)">
+                        {{ auction.end_date.strftime('%d %B %Y') if auction.end_date else '—' }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Seller -->
+                <div class="seller-line">
+                    <span class="initials">{{ auction.first_name[0]|upper }}{{ auction.last_name[0]|upper }}</span>
+                    <div>
+                        <span class="overline">Consigned by</span>
+                        <div class="t-strong">{{ auction.first_name }} {{ auction.last_name }}</div>
+                    </div>
+                </div>
+
+                <!-- Bid form -->
+                <div class="mt-4">
+                {% if current_user.is_authenticated and current_user.user_type == 'buyer' and auction.status == 'active' %}
+                    <form method="POST" action="{{ url_for('place_bid') }}" class="bid-form">
+                        <input type="hidden" name="auction_id" value="{{ auction.auction_id }}">
+
+                        <label for="bid_amount" class="form-label">Your maximum bid</label>
+                        <div class="bid-entry mb-3">
+                            <span class="prefix">$</span>
+                            <input type="number" id="bid_amount" name="bid_amount"
+                                   step="0.01" min="{{ min_bid }}" value="{{ "%.2f"|format(min_bid) }}" required>
                         </div>
+
+                        <div class="quick-bids mb-3">
+                            {% for step in [1, 2, 5] %}
+                            {% set quick = auction.current_price + auction.min_bid_increment * step %}
+                            <button type="button" data-quick-bid="{{ quick }}">${{ "{:,.0f}".format(quick) }}</button>
+                            {% endfor %}
+                        </div>
+
+                        <button type="submit" class="btn btn-accent btn-block btn-lg">Place bid</button>
+
+                        <p class="small-print mt-3 mb-0">
+                            Minimum acceptable bid is <span class="num">${{ "{:,.2f}".format(min_bid) }}</span>,
+                            in increments of <span class="num">${{ "{:,.2f}".format(auction.min_bid_increment) }}</span>.
+                        </p>
+                    </form>
+                {% elif not current_user.is_authenticated and auction.status == 'active' %}
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-block btn-lg">Sign in to bid</a>
+                    <p class="small-print mt-3 mb-0 text-center">
+                        No account? <a href="{{ url_for('register') }}" class="link-underline">Register in a minute</a>
+                    </p>
+                {% elif current_user.is_authenticated and current_user.user_type != 'buyer' and auction.status == 'active' %}
+                    <div class="alert alert-secondary mb-0">
+                        Bidding is open to buyer accounts. You are signed in as a {{ current_user.user_type }}.
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary mb-0">
+                        Bidding on this lot has closed.
+                    </div>
+                {% endif %}
+                </div>
+
+                <!-- Watchlist -->
+                {% if current_user.is_authenticated and current_user.user_type == 'buyer' %}
+                <div class="mt-3">
+                    {% if in_watchlist %}
+                    <form method="POST" action="{{ url_for('remove_from_watchlist', auction_id=auction.auction_id) }}" class="watch-form">
+                        <button type="submit" class="btn btn-outline btn-block">
+                            <i class="fas fa-bookmark"></i> Saved &mdash; remove
+                        </button>
+                    </form>
                     {% else %}
-                        <p class="text-muted">No bids placed yet. Be the first to bid!</p>
+                    <form method="POST" action="{{ url_for('add_to_watchlist', auction_id=auction.auction_id) }}" class="watch-form">
+                        <button type="submit" class="btn btn-outline btn-block">
+                            <i class="far fa-bookmark"></i> Save this lot
+                        </button>
+                    </form>
                     {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Conditions -->
+                <div class="mt-5">
+                    <div class="fieldset-title"><span>Conditions</span></div>
+                    <div class="spec-list" style="border-top:0">
+                        <div class="row-item">
+                            <span class="k">Bids</span>
+                            <span class="v" style="font-size:.8125rem">Binding and time-stamped</span>
+                        </div>
+                        <div class="row-item">
+                            <span class="k">Close</span>
+                            <span class="v" style="font-size:.8125rem">Automatic at the stated time</span>
+                        </div>
+                        <div class="row-item">
+                            <span class="k">Payment</span>
+                            <span class="v" style="font-size:.8125rem">Invoiced to the winning bidder</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-// Countdown Timer
-document.addEventListener('DOMContentLoaded', function() {
-    const countdownEl = document.getElementById('countdown');
-    if (countdownEl) {
-        const endDate = countdownEl.dataset.end;
-        
-        function updateCountdown() {
-            const now = new Date().getTime();
-            const end = new Date(endDate).getTime();
-            const distance = end - now;
-            
-            if (distance < 0) {
-                countdownEl.innerHTML = 'Auction Closed';
-                countdownEl.className = 'text-danger';
-                return;
-            }
-            
-            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-            
-            countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        }
-        
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
-    }
-});
-</script>
 {% endblock %}

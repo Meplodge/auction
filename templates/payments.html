@@ -1,93 +1,135 @@
 {% extends "base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
 
-{% block title %}Payments{% endblock %}
+{% block title %}Invoices — Auction House{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2><i class="fas fa-credit-card"></i> My Payments</h2>
-    <hr>
-    
-    <div class="card">
-        <div class="card-body">
-            {% if payments %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Auction</th>
-                            <th>Seller</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Method</th>
-                            <th>Date</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for payment in payments %}
-                        <tr>
-                            <td>{{ payment.auction_title }}</td>
-                            <td>{{ payment.seller_first_name }} {{ payment.seller_last_name }}</td>
-                            <td><strong>${{ payment.amount }}</strong></td>
-                            <td>
-                                <span class="badge bg-{{ 'success' if payment.payment_status == 'completed' else 'warning' if payment.payment_status == 'pending' else 'danger' }}">
-                                    {{ payment.payment_status|upper }}
-                                </span>
-                            </td>
-                            <td>{{ payment.payment_method or '-' }}</td>
-                            <td>{{ payment.payment_date or 'Pending' }}</td>
-                            <td>
-                                {% if payment.payment_status == 'pending' %}
-                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" 
-                                        data-bs-target="#paymentModal{{ payment.payment_id }}">
-                                    Pay Now
-                                </button>
-                                
-                                <!-- Payment Modal -->
-                                <div class="modal fade" id="paymentModal{{ payment.payment_id }}" tabindex="-1">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Complete Payment</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <form method="POST" action="{{ url_for('process_payment', payment_id=payment.payment_id) }}">
-                                                <div class="modal-body">
-                                                    <p>Amount: <strong>${{ payment.amount }}</strong></p>
-                                                    <div class="mb-3">
-                                                        <label for="payment_method" class="form-label">Payment Method</label>
-                                                        <select class="form-select" name="payment_method" required>
-                                                            <option value="credit_card">Credit Card</option>
-                                                            <option value="paypal">PayPal</option>
-                                                            <option value="bank_transfer">Bank Transfer</option>
-                                                            <option value="mpesa">M-Pesa</option>
-                                                            <option value="ecocash">EcoCash</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="shipping_address" class="form-label">Shipping Address</label>
-                                                        <textarea class="form-control" name="shipping_address" rows="2"></textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <button type="submit" class="btn btn-success">Confirm Payment</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+{% set pending = payments|selectattr('payment_status', 'equalto', 'pending')|list %}
+{% set settled = payments|selectattr('payment_status', 'equalto', 'completed')|list %}
+
+<div class="container">
+
+    <header class="masthead">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <span class="overline overline-accent mb-2">Buyer account</span>
+                <h1>Invoices</h1>
+                <p class="lede">Settle for the lots you have won and review past purchases.</p>
             </div>
-            {% else %}
-            <p class="text-muted">No payments found.</p>
-            {% endif %}
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('buyer_dashboard') }}" class="overline overline-ink link-underline">Back to account</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="figures-row reveal">
+        {{ figure_cell('Awaiting payment', pending|length) }}
+        {{ figure_cell('Settled', settled|length) }}
+        {{ figure_cell('Total paid', settled|sum(attribute='amount') or 0, prefix='$', decimals=2) }}
+    </section>
+
+    <section class="mt-5 pb-3">
+        <div class="section-head reveal">
+            <div class="head-text">
+                <span class="overline">Statement</span>
+                <h2 class="title-md mb-0">
+                    {{ payments|length }} invoice{{ '' if payments|length == 1 else 's' }}
+                </h2>
+            </div>
+            <div class="head-rule"></div>
+        </div>
+
+        {% if payments %}
+        <div class="table-responsive reveal">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Lot</th>
+                        <th>Consigned by</th>
+                        <th class="text-end">Amount</th>
+                        <th>Status</th>
+                        <th>Method</th>
+                        <th class="text-end">Date</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td class="t-strong">{{ payment.auction_title }}</td>
+                        <td class="t-quiet">{{ payment.seller_first_name }} {{ payment.seller_last_name }}</td>
+                        <td class="text-end t-figure">${{ "{:,.2f}".format(payment.amount) }}</td>
+                        <td>
+                            <span class="mark-box {{ 'is-live' if payment.payment_status == 'completed' else 'is-draft' }}">
+                                {{ 'Settled' if payment.payment_status == 'completed' else payment.payment_status }}
+                            </span>
+                        </td>
+                        <td class="t-quiet">{{ (payment.payment_method or '—')|replace('_', ' ')|title }}</td>
+                        <td class="text-end t-quiet">
+                            {{ payment.payment_date.strftime('%d %b %Y') if payment.payment_date else 'Due' }}
+                        </td>
+                        <td class="text-end">
+                            {% if payment.payment_status == 'pending' %}
+                            <button type="button" class="btn btn-accent btn-sm" data-bs-toggle="modal"
+                                    data-bs-target="#pay{{ payment.payment_id }}">Pay</button>
+                            {% else %}
+                            <span class="t-quiet"><i class="fas fa-check" style="font-size:.75rem"></i></span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            {{ blank('fa-file-invoice', 'No invoices',
+                     'When you win a lot, its invoice appears here ready to settle.',
+                     url_for('search'), 'Browse lots') }}
+        {% endif %}
+    </section>
+</div>
+
+<!-- Payment dialogs -->
+{% for payment in payments %}
+    {% if payment.payment_status == 'pending' %}
+    <div class="modal fade" id="pay{{ payment.payment_id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Settle invoice</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('process_payment', payment_id=payment.payment_id) }}">
+                    <div class="modal-body">
+                        <span class="overline">{{ payment.auction_title }}</span>
+                        <div class="bid-figure mt-2 mb-4">${{ "{:,.2f}".format(payment.amount) }}</div>
+
+                        <div class="mb-4">
+                            <label for="method{{ payment.payment_id }}" class="form-label">Payment method</label>
+                            <select class="form-select" id="method{{ payment.payment_id }}" name="payment_method" required>
+                                <option value="credit_card">Credit card</option>
+                                <option value="bank_transfer">Bank transfer</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="ecocash">EcoCash</option>
+                                <option value="mpesa">M-Pesa</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="ship{{ payment.payment_id }}" class="form-label">Delivery address</label>
+                            <textarea class="form-control" id="ship{{ payment.payment_id }}"
+                                      name="shipping_address" rows="3"
+                                      placeholder="Street, city, country"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-accent">Confirm payment</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
+    {% endif %}
+{% endfor %}
 {% endblock %}

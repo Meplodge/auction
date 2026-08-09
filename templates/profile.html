@@ -1,69 +1,101 @@
 {% extends "base.html" %}
 
-{% block title %}Profile{% endblock %}
+{% block title %}Profile — Auction House{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2><i class="fas fa-user"></i> My Profile</h2>
-    <hr>
-    
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card text-center">
-                <div class="card-body">
-                    <div class="mb-3">
-                        <i class="fas fa-user-circle" style="font-size: 100px; color: #667eea;"></i>
+<div class="container">
+
+    <header class="masthead">
+        <span class="overline overline-accent mb-2">Your account</span>
+        <h1>Profile</h1>
+        <p class="lede">Your details as they appear on bids, consignments and invoices.</p>
+    </header>
+
+    <div class="row g-5">
+        <!-- Identity -->
+        <div class="col-lg-4">
+            <div class="reveal">
+                <span class="initials initials-lg mb-4">{{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}</span>
+
+                <h2 class="display-sm mb-1">{{ user.first_name }}<br>{{ user.last_name }}</h2>
+                <span class="overline mb-4">{{ user.user_type }} account &mdash; @{{ user.username }}</span>
+
+                <div class="spec-list mt-4">
+                    <div class="row-item">
+                        <span class="k">Email</span>
+                        <span class="v" style="font-size:.8125rem;word-break:break-all">{{ user.email }}</span>
                     </div>
-                    <h4>{{ user.first_name }} {{ user.last_name }}</h4>
-                    <p class="text-muted">@{{ user.username }}</p>
-                    <p><span class="badge bg-info">{{ user.user_type|upper }}</span></p>
-                    <p><i class="fas fa-envelope"></i> {{ user.email }}</p>
-                    <p><i class="fas fa-phone"></i> {{ user.phone or 'Not provided' }}</p>
-                    <p><i class="fas fa-calendar"></i> Joined: {{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'N/A' }}</p>
+                    <div class="row-item">
+                        <span class="k">Telephone</span>
+                        <span class="v" style="font-size:.8125rem">{{ user.phone or 'Not provided' }}</span>
+                    </div>
+                    <div class="row-item">
+                        <span class="k">Member since</span>
+                        <span class="v" style="font-size:.8125rem">
+                            {{ user.created_at.strftime('%d %B %Y') if user.created_at else '—' }}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Edit Profile</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="first_name" class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="first_name" name="first_name" 
-                                       value="{{ user.first_name }}" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="last_name" class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="last_name" name="last_name" 
-                                       value="{{ user.last_name }}" required>
-                            </div>
+
+        <!-- Edit -->
+        <div class="col-lg-7 offset-lg-1">
+            <section class="reveal">
+                <div class="fieldset-title"><span class="n">01</span><span>Edit details</span></div>
+
+                <form method="POST" class="needs-validation" novalidate>
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label for="first_name" class="form-label">First name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name"
+                                   value="{{ user.first_name }}" required>
+                            <div class="invalid-feedback">Required.</div>
                         </div>
-                        <div class="mb-3">
-                            <label for="phone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="phone" name="phone" 
-                                   value="{{ user.phone or '' }}">
+                        <div class="col-md-6 mb-4">
+                            <label for="last_name" class="form-label">Last name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name"
+                                   value="{{ user.last_name }}" required>
+                            <div class="invalid-feedback">Required.</div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Update Profile</button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h5>Account Actions</h5>
-                </div>
-                <div class="card-body">
-                    <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
-                    {% if current_user.user_type == 'seller' %}
-                        <a href="{{ url_for('create_auction') }}" class="btn btn-success">Create Auction</a>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="phone" class="form-label">Telephone</label>
+                        <input type="tel" class="form-control" id="phone" name="phone"
+                               value="{{ user.phone or '' }}">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </form>
+            </section>
+
+            <section class="mt-5 reveal">
+                <div class="fieldset-title"><span class="n">02</span><span>Shortcuts</span></div>
+
+                <div class="stack-lines" style="border-top:1px solid var(--rule)">
+                    {% if current_user.user_type in ['seller', 'admin'] %}
+                    <a href="{{ url_for('create_auction') }}" class="d-flex justify-content-between align-items-center py-3">
+                        <span class="t-strong">Consign an item</span>
+                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
+                    </a>
                     {% endif %}
+                    {% if current_user.user_type == 'buyer' %}
+                    <a href="{{ url_for('payments') }}" class="d-flex justify-content-between align-items-center py-3">
+                        <span class="t-strong">Your invoices</span>
+                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('search') }}" class="d-flex justify-content-between align-items-center py-3">
+                        <span class="t-strong">Browse the current sale</span>
+                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="d-flex justify-content-between align-items-center py-3">
+                        <span class="t-strong text-accent">Sign out</span>
+                        <i class="fas fa-arrow-right-from-bracket" style="font-size:.75rem;color:var(--accent)"></i>
+                    </a>
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 </div>

@@ -1,52 +1,112 @@
 {% extends "base.html" %}
+{% from "_macros.html" import lot_card, blank %}
 
-{% block title %}Search Results{% endblock %}
+{% block title %}Lots — Auction House{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2><i class="fas fa-search"></i> Search Results</h2>
-    <p>Showing results for: <strong>"{{ query or 'All' }}"</strong></p>
-    <hr>
-    
-    <div class="row">
-        {% if auctions %}
-            {% for auction in auctions %}
-            <div class="col-md-3 mb-4">
-                <div class="card h-100">
-                    {% if auction.primary_image %}
-                        <img src="{{ url_for('static', filename='uploads/' + auction.primary_image) }}" 
-                             class="card-img-top" alt="{{ auction.title }}" 
-                             style="height: 200px; object-fit: cover;">
-                    {% else %}
-                        <img src="https://via.placeholder.com/300x200?text=No+Image" 
-                             class="card-img-top" alt="No image">
-                    {% endif %}
-                    <div class="card-body">
-                        <span class="badge bg-{{ 'success' if auction.status == 'active' else 'danger' }} float-end">
-                            {{ auction.status|upper }}
-                        </span>
-                        <h5 class="card-title">{{ auction.title }}</h5>
-                        <p class="card-text text-muted">{{ auction.category }}</p>
-                        <p class="card-text">{{ auction.description[:60] }}{% if auction.description|length > 60 %}...{% endif %}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="h5 text-primary">${{ auction.current_price }}</span>
-                            <small class="text-muted">{{ auction.total_bids }} bids</small>
+{% set sel_category = request.args.get('category', '') %}
+{% set sel_status = request.args.get('status', 'active') %}
+{% set sel_min = request.args.get('min_price', '') %}
+{% set sel_max = request.args.get('max_price', '') %}
+{% set filtered = query or sel_category or sel_min or sel_max or sel_status != 'active' %}
+
+<div class="container">
+
+    <header class="masthead">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <span class="overline overline-accent mb-2">
+                    {% if sel_status == 'closed' %}Past results
+                    {% elif sel_status == 'all' %}Complete catalogue
+                    {% else %}Open for bidding{% endif %}
+                </span>
+                <h1>{% if query %}&ldquo;{{ query }}&rdquo;{% elif sel_category %}{{ sel_category }}{% else %}All lots{% endif %}</h1>
+                <p class="lede">
+                    {{ auctions|length }} lot{{ '' if auctions|length == 1 else 's' }}
+                    {% if sel_category %}in {{ sel_category }}{% endif %}
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                {% if filtered %}
+                <a href="{{ url_for('search') }}" class="link-underline overline overline-ink">Clear all filters</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <div class="rail mb-5">
+        <a href="{{ url_for('search', q=query, status=sel_status) }}" class="{{ 'is-on' if not sel_category }}">All</a>
+        {% for cat in categories|default([]) %}
+            <a href="{{ url_for('search', category=cat, q=query, status=sel_status) }}"
+               class="{{ 'is-on' if sel_category == cat }}">{{ cat }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="row g-4 g-lg-5">
+        <!-- Refine -->
+        <aside class="col-lg-3">
+            <form method="GET" action="{{ url_for('search') }}" class="reveal" style="position:sticky;top:100px">
+                <div class="fieldset-title"><span>Refine</span></div>
+
+                <div class="mb-4">
+                    <label for="q" class="form-label">Keyword</label>
+                    <input type="search" class="form-control" id="q" name="q"
+                           value="{{ query or '' }}" placeholder="Maker, material, model">
+                </div>
+
+                <div class="mb-4">
+                    <label for="category" class="form-label">Department</label>
+                    <select class="form-select" id="category" name="category">
+                        <option value="">All departments</option>
+                        {% for cat in categories|default([]) %}
+                            <option value="{{ cat }}" {% if sel_category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="status" class="form-label">Sale status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="active" {% if sel_status == 'active' %}selected{% endif %}>Open for bidding</option>
+                        <option value="closed" {% if sel_status == 'closed' %}selected{% endif %}>Closed</option>
+                        <option value="all" {% if sel_status == 'all' %}selected{% endif %}>All lots</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Estimate (USD)</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="number" class="form-control" name="min_price" min="0" step="1"
+                                   placeholder="Min" value="{{ sel_min }}">
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control" name="max_price" min="0" step="1"
+                                   placeholder="Max" value="{{ sel_max }}">
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <a href="{{ url_for('auction_details', auction_id=auction.auction_id) }}" 
-                           class="btn btn-primary w-100">View Auction</a>
-                    </div>
                 </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12">
-                <div class="alert alert-info">
-                    No auctions found. Try adjusting your search terms.
+
+                <button type="submit" class="btn btn-primary btn-block">Apply</button>
+            </form>
+        </aside>
+
+        <!-- Results -->
+        <div class="col-lg-9">
+            {% if auctions %}
+            <div class="row g-4 g-lg-0 lot-grid-3">
+                {% for auction in auctions %}
+                <div class="col-6 col-xl-4 px-lg-4 mb-lg-5">
+                    {{ lot_card(auction, delay=loop.index0 * 45) }}
                 </div>
+                {% endfor %}
             </div>
-        {% endif %}
+            {% else %}
+                {{ blank('fa-magnifying-glass', 'No lots match',
+                         'Try a broader keyword, a different department, or widen the estimate range.',
+                         url_for('search'), 'Clear filters') }}
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

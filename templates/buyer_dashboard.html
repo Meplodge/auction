@@ -1,75 +1,184 @@
 {% extends "base.html" %}
+{% from "_macros.html" import figure_cell, mark, blank %}
 
-{% block title %}Buyer Dashboard{% endblock %}
+{% block title %}Your account — Auction House{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <h2 class="mb-3">Buyer Dashboard</h2>
-    <p class="text-muted">Welcome, {{ current_user.first_name }} {{ current_user.last_name }}.</p>
+{% set leading = my_bids|selectattr('auction_status', 'equalto', 'active')|selectattr('highest_bid')|list %}
 
-    <div class="row">
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">My Bids</h5>
-                    {% if my_bids %}
-                        <ul class="list-group list-group-flush">
-                            {% for bid in my_bids %}
-                                <li class="list-group-item">
-                                    <strong>{{ bid.title }}</strong><br>
-                                    Bid: ${{ bid.bid_amount }}<br>
-                                    Status: {{ bid.auction_status }}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted mb-0">You have not placed any bids yet.</p>
-                    {% endif %}
-                </div>
+<div class="container">
+
+    <header class="masthead">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <span class="overline overline-accent mb-2">Buyer account</span>
+                <h1>Your bidding</h1>
+                <p class="lede">{{ current_user.first_name }}, here are your bids, saved lots and won items.</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('search') }}" class="btn btn-primary btn-sm">Browse lots</a>
             </div>
         </div>
+    </header>
 
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Watchlist</h5>
-                    {% if watchlist %}
-                        <ul class="list-group list-group-flush">
-                            {% for item in watchlist %}
-                                <li class="list-group-item">
-                                    <strong>{{ item.title }}</strong><br>
-                                    Price: ${{ item.current_price }}<br>
-                                    Ends: {{ item.end_date }}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted mb-0">Your watchlist is empty.</p>
-                    {% endif %}
+    <section class="figures-row reveal">
+        {{ figure_cell('Bids placed', my_bids|length) }}
+        {{ figure_cell('Lots saved', watchlist|length) }}
+        {{ figure_cell('Lots won', wins|length) }}
+        {{ figure_cell('Currently leading', leading|length) }}
+    </section>
+
+    <div class="row g-5 mt-3">
+        <!-- Bids -->
+        <div class="col-lg-7">
+            <div class="section-head reveal">
+                <div class="head-text">
+                    <span class="overline">Activity</span>
+                    <h2 class="title-md mb-0">Your bids</h2>
                 </div>
+                <div class="head-rule"></div>
             </div>
+
+            {% if my_bids %}
+            <div class="table-responsive reveal">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Lot</th>
+                            <th class="text-end">Your bid</th>
+                            <th class="text-end">Leading bid</th>
+                            <th>Position</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in my_bids %}
+                        {% set ahead = bid.highest_bid and bid.bid_amount >= bid.highest_bid %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('auction_details', auction_id=bid.auction_id) }}"
+                                   class="t-strong link-underline">{{ bid.title }}</a>
+                                <div class="small-print">
+                                    {{ bid.bid_time.strftime('%d %b %Y, %H:%M') if bid.bid_time else '' }}
+                                </div>
+                            </td>
+                            <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
+                            <td class="text-end t-quiet num">
+                                {{ '${:,.2f}'.format(bid.highest_bid) if bid.highest_bid else '—' }}
+                            </td>
+                            <td>
+                                {% if bid.auction_status != 'active' %}
+                                    <span class="mark-box is-closed">Closed</span>
+                                {% elif ahead %}
+                                    <span class="mark-box is-live">Leading</span>
+                                {% else %}
+                                    <span class="mark-box is-accent">Outbid</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-gavel', 'No bids yet',
+                         'Once you bid on a lot it will be tracked here until the sale closes.',
+                         url_for('search'), 'Browse lots') }}
+            {% endif %}
         </div>
 
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">My Wins</h5>
-                    {% if wins %}
-                        <ul class="list-group list-group-flush">
-                            {% for auction in wins %}
-                                <li class="list-group-item">
-                                    <strong>{{ auction.title }}</strong><br>
-                                    Status: Closed<br>
-                                    Ended: {{ auction.end_date }}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted mb-0">You have not won any auctions yet.</p>
-                    {% endif %}
+        <!-- Saved -->
+        <div class="col-lg-5">
+            <div class="section-head reveal">
+                <div class="head-text">
+                    <span class="overline">Following</span>
+                    <h2 class="title-md mb-0">Saved lots</h2>
                 </div>
+                <div class="head-rule"></div>
             </div>
+
+            {% if watchlist %}
+            <div class="stack-lines reveal" style="border-top:1px solid var(--ink)">
+                {% for item in watchlist %}
+                <a href="{{ url_for('auction_details', auction_id=item.auction_id) }}"
+                   class="d-flex align-items-center gap-3 py-3">
+                    <span style="width:64px;height:64px;flex-shrink:0;overflow:hidden;background:var(--paper-2);display:grid;place-items:center;color:var(--ink-30)">
+                        {% if item.primary_image %}
+                            <img src="{{ url_for('static', filename='uploads/' + item.primary_image) }}"
+                                 alt="{{ item.title }}" style="width:100%;height:100%;object-fit:cover">
+                        {% else %}
+                            <i class="far fa-image"></i>
+                        {% endif %}
+                    </span>
+                    <span class="flex-grow-1" style="min-width:0">
+                        <span class="t-strong d-block text-truncate">{{ item.title }}</span>
+                        <span class="small-print num">
+                            ${{ "{:,.0f}".format(item.current_price) }}
+                            {% if item.auction_status == 'active' and item.end_date %}
+                                &middot; <span data-countdown="{{ item.end_date }}">&mdash;</span>
+                            {% endif %}
+                        </span>
+                    </span>
+                    {{ mark(item.auction_status, 'box') }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+                {{ blank('fa-bookmark', 'Nothing saved',
+                         'Save a lot from its page to follow it here.',
+                         url_for('search'), 'Find lots') }}
+            {% endif %}
         </div>
     </div>
+
+    <!-- Won -->
+    <section class="mt-5 pb-3">
+        <div class="section-head reveal">
+            <div class="head-text">
+                <span class="overline">Results</span>
+                <h2 class="title-md mb-0">Lots won</h2>
+            </div>
+            <div class="head-rule"></div>
+            {% if wins %}
+            <div class="head-action">
+                <a href="{{ url_for('payments') }}" class="overline overline-ink link-underline">View invoices</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if wins %}
+        <div class="table-responsive reveal">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:70px">Lot</th>
+                        <th>Title</th>
+                        <th>Consigned by</th>
+                        <th class="text-end">Hammer price</th>
+                        <th class="text-end">Closed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for auction in wins %}
+                    <tr>
+                        <td class="rank">{{ '%03d'|format(auction.auction_id) }}</td>
+                        <td>
+                            <a href="{{ url_for('auction_details', auction_id=auction.auction_id) }}"
+                               class="t-strong link-underline">{{ auction.title }}</a>
+                        </td>
+                        <td class="t-quiet">{{ auction.seller_first_name }} {{ auction.seller_last_name }}</td>
+                        <td class="text-end t-figure">${{ "{:,.2f}".format(auction.current_price) }}</td>
+                        <td class="text-end t-quiet">
+                            {{ auction.end_date.strftime('%d %b %Y') if auction.end_date else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            {{ blank('fa-award', 'No lots won yet',
+                     'Keep bidding. Anything you win will be listed here with its invoice.') }}
+        {% endif %}
+    </section>
 </div>
 {% endblock %}
