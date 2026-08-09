@@ -1,7 +1,7 @@
 {% extends "dash_base.html" %}
 {% from "_macros.html" import figure_cell, blank %}
 
-{% block title %}Invoices — BidHouse{% endblock %}
+{% block title %}Invoices — Auction System{% endblock %}
 
 {% block dash %}
 {% set pending = payments|selectattr('payment_status', 'equalto', 'pending')|list %}

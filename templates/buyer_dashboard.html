@@ -1,7 +1,7 @@
 {% extends "dash_base.html" %}
 {% from "_macros.html" import figure_cell, mark, blank, area_chart %}
 
-{% block title %}Your account — BidHouse{% endblock %}
+{% block title %}Your account — Auction System{% endblock %}
 
 {% block dash %}
 {% set leading = my_bids|selectattr('auction_status', 'equalto', 'active')|selectattr('highest_bid')|list %}
