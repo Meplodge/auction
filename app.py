@@ -1755,8 +1755,103 @@ def profile():
         cur = mysql.connection.cursor()
         cur.execute("SELECT * FROM users WHERE user_id = %s", (current_user.id,))
         user = cur.fetchone()
+
+        # Activity stats — each query wrapped individually so a missing
+        # column or table doesn't take down the whole page.
+        stats = {}
+        recent_bids = []
+        recent_lots = []
+
+        try:
+            cur.execute("""
+                SELECT COUNT(*) AS total,
+                       COUNT(CASE WHEN status = 'accepted' THEN 1 END) AS accepted,
+                       COALESCE(MAX(bid_amount), 0) AS highest
+                FROM bids WHERE bidder_id = %s
+            """, (current_user.id,))
+            bids_row = cur.fetchone()
+            stats['bids_placed'] = bids_row['total'] if bids_row else 0
+            stats['bids_accepted'] = bids_row['accepted'] if bids_row else 0
+            stats['highest_bid'] = bids_row['highest'] if bids_row else 0
+        except Exception as e:
+            print(f"Profile stats (bids) error: {e}")
+            stats['bids_placed'] = stats['bids_accepted'] = stats['highest_bid'] = 0
+
+        try:
+            cur.execute("""
+                SELECT COUNT(*) AS total,
+                       COUNT(CASE WHEN status = 'active' THEN 1 END) AS active,
+                       COALESCE(SUM(current_price), 0) AS total_value
+                FROM auctions WHERE seller_id = %s
+            """, (current_user.id,))
+            lots_row = cur.fetchone()
+            stats['lots_consigned'] = lots_row['total'] if lots_row else 0
+            stats['lots_active'] = lots_row['active'] if lots_row else 0
+            stats['lots_value'] = lots_row['total_value'] if lots_row else 0
+        except Exception as e:
+            print(f"Profile stats (lots) error: {e}")
+            stats['lots_consigned'] = stats['lots_active'] = stats['lots_value'] = 0
+
+        try:
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM auctions a
+                JOIN bids b ON b.auction_id = a.auction_id AND b.bid_amount = a.current_price
+                WHERE b.bidder_id = %s AND a.status = 'closed'
+            """, (current_user.id,))
+            stats['auctions_won'] = cur.fetchone()['total']
+        except Exception as e:
+            print(f"Profile stats (won) error: {e}")
+            stats['auctions_won'] = 0
+
+        try:
+            cur.execute("SELECT COUNT(*) AS total FROM watchlist WHERE user_id = %s",
+                        (current_user.id,))
+            stats['watchlist'] = cur.fetchone()['total']
+        except Exception as e:
+            print(f"Profile stats (watchlist) error: {e}")
+            stats['watchlist'] = 0
+
+        try:
+            cur.execute("""
+                SELECT COUNT(*) AS total, COALESCE(SUM(amount), 0) AS owed
+                FROM payments WHERE buyer_id = %s AND payment_status = 'pending'
+            """, (current_user.id,))
+            pay_row = cur.fetchone()
+            stats['pending_payments'] = pay_row['total']
+            stats['amount_owed'] = pay_row['owed']
+        except Exception as e:
+            print(f"Profile stats (payments) error: {e}")
+            stats['pending_payments'] = 0
+            stats['amount_owed'] = 0
+
+        try:
+            cur.execute("""
+                SELECT b.bid_id, b.bid_amount, b.bid_time, b.status,
+                       a.auction_id, a.title, a.status AS lot_status
+                FROM bids b
+                JOIN auctions a ON a.auction_id = b.auction_id
+                WHERE b.bidder_id = %s
+                ORDER BY b.bid_time DESC
+                LIMIT 5
+            """, (current_user.id,))
+            recent_bids = cur.fetchall()
+        except Exception as e:
+            print(f"Profile recent bids error: {e}")
+
+        try:
+            cur.execute("""
+                SELECT auction_id, title, current_price, status, end_date
+                FROM auctions WHERE seller_id = %s
+                ORDER BY auction_id DESC LIMIT 5
+            """, (current_user.id,))
+            recent_lots = cur.fetchall()
+        except Exception as e:
+            print(f"Profile recent lots error: {e}")
+
         cur.close()
-        return render_template('profile.html', user=user)
+        return render_template('profile.html', user=user, stats=stats,
+                               recent_bids=recent_bids, recent_lots=recent_lots)
     except Exception as e:
         print(f"Profile error: {e}")
         flash('Error loading profile.', 'danger')

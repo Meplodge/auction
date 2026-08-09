@@ -1,15 +1,16 @@
 {% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
 
 {% block title %}Profile — Auction System{% endblock %}
 
 {% block dash %}
     <header class="masthead pt-0">
-        <h1>Profile</h1>
-        <p class="lede">Your details as they appear on bids, consignments and invoices.</p>
+        <h1>Hi, {{ user.last_name }}</h1>
+        <p class="lede">Your details, activity and account settings.</p>
     </header>
 
     <div class="row g-4">
-        <!-- Identity -->
+        <!-- Identity + stats -->
         <div class="col-lg-5">
             <div class="panel p-4 reveal text-center text-lg-start">
                 {% if user.profile_image %}
@@ -38,11 +39,45 @@
                             {{ user.created_at.strftime('%d %B %Y') if user.created_at else '—' }}
                         </span>
                     </div>
+                    <div class="row-item">
+                        <span class="k">Account status</span>
+                        <span class="v" style="font-size:.8125rem">
+                            {% if user.is_suspended %}
+                                <span class="mark-box is-accent">Suspended</span>
+                            {% else %}
+                                <span class="mark-box is-live">Active</span>
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Activity stats -->
+            <div class="figures-row reveal mt-4">
+                {{ figure_cell('Bids placed', stats.bids_placed, trail='All time') }}
+                {{ figure_cell('Auctions won', stats.auctions_won, trail='Closed lots') }}
+            </div>
+            <div class="figures-row reveal mt-3">
+                {{ figure_cell('Watchlist', stats.watchlist, trail='Saved lots') }}
+                {{ figure_cell('Highest bid', stats.highest_bid, prefix='$', decimals=0,
+                               trail='Single bid') }}
+            </div>
+            {% if current_user.user_type in ['seller', 'admin'] %}
+            <div class="figures-row reveal mt-3">
+                {{ figure_cell('Lots consigned', stats.lots_consigned, trail='All time') }}
+                {{ figure_cell('Live lots', stats.lots_active, trail='Open for bidding') }}
+            </div>
+            {% endif %}
+            {% if stats.pending_payments %}
+            <div class="figures-row reveal mt-3">
+                {{ figure_cell('Outstanding', stats.amount_owed, prefix='$', decimals=2,
+                               trail=stats.pending_payments ~ ' pending invoice' ~ ('s' if stats.pending_payments != 1 else ''),
+                               variant='is-accent') }}
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Edit -->
+        <!-- Edit + activity -->
         <div class="col-lg-7">
             <section class="panel p-4 reveal">
                 <div class="fieldset-title"><span class="n">01</span><span>Edit details</span></div>
@@ -81,30 +116,57 @@
 
                 <div class="rule-strong my-4"></div>
 
-                <div class="fieldset-title"><span class="n">02</span><span>Shortcuts</span></div>
+                <div class="fieldset-title"><span class="n">02</span><span>Recent bids</span></div>
+
+                {% if recent_bids %}
+                <div class="stack-lines">
+                    {% for bid in recent_bids %}
+                    <a href="{{ url_for('auction_details', auction_id=bid.auction_id) }}"
+                       class="d-flex justify-content-between align-items-center py-3">
+                        <span>
+                            <span class="t-strong">{{ bid.title }}</span>
+                            <span class="small-print d-block">
+                                {{ bid.bid_time.strftime('%d %b %Y, %H:%M') if bid.bid_time else '—' }}
+                            </span>
+                        </span>
+                        <span class="text-end">
+                            <span class="t-figure d-block">${{ "{:,.0f}".format(bid.bid_amount) }}</span>
+                            <span class="mark-box {{ 'is-live' if bid.status == 'accepted' else 'is-closed' }}">
+                                {{ bid.status }}
+                            </span>
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="small-print py-3 mb-0">No bids placed yet.
+                    <a href="{{ url_for('search') }}" class="link-underline">Browse lots</a> to get started.
+                </p>
+                {% endif %}
+
+                {% if current_user.user_type in ['seller', 'admin'] and recent_lots %}
+                <div class="rule-strong my-4"></div>
+
+                <div class="fieldset-title"><span class="n">03</span><span>Recent consignments</span></div>
 
                 <div class="stack-lines">
-                    {% if current_user.user_type in ['seller', 'admin'] %}
-                    <a href="{{ url_for('create_auction') }}" class="d-flex justify-content-between align-items-center py-3">
-                        <span class="t-strong">Consign an item</span>
-                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
+                    {% for lot in recent_lots %}
+                    <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}"
+                       class="d-flex justify-content-between align-items-center py-3">
+                        <span>
+                            <span class="t-strong">{{ lot.title }}</span>
+                            <span class="small-print d-block">Lot {{ '%03d'|format(lot.auction_id) }}</span>
+                        </span>
+                        <span class="text-end">
+                            <span class="t-figure d-block">${{ "{:,.0f}".format(lot.current_price) }}</span>
+                            <span class="mark-box {{ 'is-live' if lot.status == 'active' else 'is-closed' }}">
+                                {{ lot.status }}
+                            </span>
+                        </span>
                     </a>
-                    {% endif %}
-                    {% if current_user.user_type == 'buyer' %}
-                    <a href="{{ url_for('payments') }}" class="d-flex justify-content-between align-items-center py-3">
-                        <span class="t-strong">Your invoices</span>
-                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
-                    </a>
-                    {% endif %}
-                    <a href="{{ url_for('search') }}" class="d-flex justify-content-between align-items-center py-3">
-                        <span class="t-strong">Browse the current sale</span>
-                        <i class="fas fa-arrow-right" style="font-size:.75rem;color:var(--ink-45)"></i>
-                    </a>
-                    <a href="{{ url_for('logout') }}" class="d-flex justify-content-between align-items-center py-3">
-                        <span class="t-strong text-accent">Sign out</span>
-                        <i class="fas fa-arrow-right-from-bracket" style="font-size:.75rem;color:var(--accent)"></i>
-                    </a>
+                    {% endfor %}
                 </div>
+                {% endif %}
             </section>
         </div>
     </div>
