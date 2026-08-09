@@ -1170,9 +1170,7 @@ body.is-fixed-landing .account-toggle .avatar { border-color: rgba(255, 255, 255
 .fixed-hero-bg {
     position: absolute;
     inset: 0;
-    background-image:
-        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, .14), transparent 45%),
-        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, .08), transparent 35%);
+    background-image: none;
     pointer-events: none;
 }
 
@@ -1433,7 +1431,7 @@ textarea.form-control { line-height: 1.6; }
 }
 
 .form-check-input:checked { background-color: var(--brand); border-color: var(--brand); }
-.form-check-input:focus { box-shadow: 0 0 0 4px var(--brand-tint); border-color: var(--brand-400); }
+.form-check-input:focus { border-color: var(--brand-400); }
 .form-check-label { font-size: .875rem; color: var(--ink-80); }
 
 .was-validated .form-control:invalid,
@@ -1840,7 +1838,7 @@ tr.is-leading { background: var(--brand-tint) !important; }
     transition: border-color var(--t2) var(--ease), box-shadow var(--t2) var(--ease);
 }
 
-.bid-entry:focus-within { border-color: var(--brand-400); box-shadow: 0 0 0 4px var(--brand-tint); }
+.bid-entry:focus-within { border-color: var(--brand-400); }
 
 .bid-entry .prefix {
     display: grid;
@@ -1980,7 +1978,7 @@ tr.is-leading { background: var(--brand-tint) !important; }
     width: 280px;
     height: 280px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
+    background: transparent;
     z-index: 2;
 }
 
@@ -2061,7 +2059,7 @@ tr.is-leading { background: var(--brand-tint) !important; }
     width: 380px;
     height: 380px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
+    background: transparent;
 }
 
 .auth-visual > * { position: relative; z-index: 1; }
