@@ -27,6 +27,12 @@
                 <a class="side-link {{ 'is-on' if here == '/admin/bids' }}" href="{{ url_for('admin_bids') }}">
                     <i class="fas fa-gavel"></i> Bid review
                 </a>
+                <a class="side-link {{ 'is-on' if here == '/admin/lots' }}" href="{{ url_for('admin_lots') }}">
+                    <i class="fas fa-box-open"></i> Lot management
+                </a>
+                <a class="side-link {{ 'is-on' if here == '/admin/users' }}" href="{{ url_for('admin_users') }}">
+                    <i class="fas fa-users"></i> User management
+                </a>
                 {% endif %}
                 {% if current_user.user_type in ['buyer', 'admin'] %}
                 <a class="side-link {{ 'is-on' if here == '/payments' }}" href="{{ url_for('payments') }}">

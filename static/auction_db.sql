@@ -183,6 +183,7 @@ CREATE TABLE `users` (
   `phone` varchar(20) DEFAULT NULL,
   `user_type` varchar(20) DEFAULT 'buyer',
   `profile_image` varchar(255) DEFAULT NULL,
+  `is_suspended` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -213,6 +214,20 @@ CREATE TABLE `watchlist` (
   `user_id` int(11) NOT NULL,
   `auction_id` int(11) NOT NULL,
   `added_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Table structure for table `admin_actions`
+--
+
+CREATE TABLE `admin_actions` (
+  `action_id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `target_type` varchar(30) NOT NULL,
+  `target_id` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -279,6 +294,15 @@ ALTER TABLE `watchlist`
   ADD KEY `fk_watchlist_auction` (`auction_id`);
 
 --
+-- Indexes for table `admin_actions`
+--
+ALTER TABLE `admin_actions`
+  ADD PRIMARY KEY (`action_id`),
+  ADD KEY `fk_actions_admin` (`admin_id`),
+  ADD KEY `idx_actions_target` (`target_type`, `target_id`),
+  ADD KEY `idx_actions_created` (`created_at`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -319,6 +343,12 @@ ALTER TABLE `watchlist`
   MODIFY `watchlist_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
+-- AUTO_INCREMENT for table `admin_actions`
+--
+ALTER TABLE `admin_actions`
+  MODIFY `action_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- Constraints for dumped tables
 --
 
@@ -356,6 +386,12 @@ ALTER TABLE `payments`
 ALTER TABLE `watchlist`
   ADD CONSTRAINT `fk_watchlist_auction` FOREIGN KEY (`auction_id`) REFERENCES `auctions` (`auction_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_watchlist_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `admin_actions`
+--
+ALTER TABLE `admin_actions`
+  ADD CONSTRAINT `fk_actions_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

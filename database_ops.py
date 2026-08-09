@@ -158,6 +158,19 @@ def initialize_database(app):
             auction_id INT NOT NULL,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS admin_actions (
+            action_id INT AUTO_INCREMENT PRIMARY KEY,
+            admin_id INT NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            target_type VARCHAR(30) NOT NULL,
+            target_id INT,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_actions_target (target_type, target_id),
+            INDEX idx_actions_created (created_at)
+        )
         """
     ]
 
@@ -172,6 +185,9 @@ def initialize_database(app):
         ("removed_by", "INT"),
     ]:
         add_column_if_missing(cur, "bids", column, definition)
+
+    # Migration: add suspension flag to users for admin user management
+    add_column_if_missing(cur, "users", "is_suspended", "TINYINT(1) DEFAULT 0")
 
     cur.execute("UPDATE bids SET status = 'accepted' WHERE status IS NULL")
 

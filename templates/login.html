@@ -3,43 +3,47 @@
 {% block title %}Sign in — BidHouse{% endblock %}
 
 {% block content %}
-<div class="auth-split">
-    <!-- Visual -->
-    <aside class="auth-visual d-none d-lg-flex">
-        <div>
-            <span class="wordmark" style="color:#fff"><span class="mark-rule"></span>BidHouse</span>
-        </div>
+<div class="auth-single">
+    <div class="auth-card auth-card-split">
+        <!-- Visual -->
+        <div class="auth-banner">
+            <div class="auth-banner-bg" aria-hidden="true">
+                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_1_vintage-rolex-submariner-watch_1.jpg') }}'); animation-delay:0s"></div>
+                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_3_gaming-laptop-rtx-4080-32gb-ram_0.jpg') }}'); animation-delay:6s"></div>
+                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_6_diamond-pendant-necklace-18k-gold_0.jpg') }}'); animation-delay:12s"></div>
+                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_2_antique-oak-writing-desk_0.jpg') }}'); animation-delay:18s"></div>
+            </div>
+            <div class="auth-banner-content">
+                <span class="wordmark" style="color:#fff"><span class="mark-rule"></span>BidHouse</span>
 
-        <div>
-            <p class="quote mb-4">
-                &ldquo;The best lots rarely wait.
-                Sign in, place your bid, and follow it to the close.&rdquo;
-            </p>
-            <div class="rule mb-4"></div>
-            <div class="row g-4">
-                <div class="col-4">
-                    <span class="overline">Bidding</span>
-                    <div class="serif" style="font-size:1.4rem">Timed</div>
+                <div>
+                    <p class="quote mb-4">
+                        &ldquo;The best lots rarely wait.
+                        Sign in, place your bid, and follow it to the close.&rdquo;
+                    </p>
+                    <div class="rule mb-4"></div>
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <span class="overline">Bidding</span>
+                            <div class="serif" style="font-size:1.2rem">Timed</div>
+                        </div>
+                        <div class="col-4">
+                            <span class="overline">Records</span>
+                            <div class="serif" style="font-size:1.2rem">Public</div>
+                        </div>
+                        <div class="col-4">
+                            <span class="overline">Close</span>
+                            <div class="serif" style="font-size:1.2rem">Automatic</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-4">
-                    <span class="overline">Records</span>
-                    <div class="serif" style="font-size:1.4rem">Public</div>
-                </div>
-                <div class="col-4">
-                    <span class="overline">Close</span>
-                    <div class="serif" style="font-size:1.4rem">Automatic</div>
-                </div>
+
+                <span class="overline">Established 2026</span>
             </div>
         </div>
 
-        <div>
-            <span class="overline">Established 2026</span>
-        </div>
-    </aside>
-
-    <!-- Form -->
-    <div class="auth-form-col">
-        <div class="auth-form">
+        <!-- Form body -->
+        <div class="auth-body">
             <span class="overline overline-accent">Account access</span>
             <h1 class="display-sm mt-2 mb-2">Sign in</h1>
             <p class="lede mb-4">Continue to your bids, saved lots and invoices.</p>

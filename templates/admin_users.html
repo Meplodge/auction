@@ -1,0 +1,166 @@
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
+
+{% block title %}User management — BidHouse{% endblock %}
+
+{% block dash %}
+    <header class="masthead pt-0">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <h1>User management</h1>
+                <p class="lede">Suspend, reinstate or change the role of any account on the platform.</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline btn-sm">Back to dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <form method="GET" action="{{ url_for('admin_users') }}" class="panel p-3 reveal mb-4">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label">Search</label>
+                <input type="search" class="form-control" name="q" value="{{ q or '' }}"
+                       placeholder="Name, username or email">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Role</label>
+                <select class="form-select" name="role">
+                    <option value="all" {{ 'selected' if role == 'all' }}>All roles</option>
+                    <option value="admin" {{ 'selected' if role == 'admin' }}>Admin</option>
+                    <option value="seller" {{ 'selected' if role == 'seller' }}>Seller</option>
+                    <option value="buyer" {{ 'selected' if role == 'buyer' }}>Buyer</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Suspended</label>
+                <select class="form-select" name="suspended">
+                    <option value="all" {{ 'selected' if suspended == 'all' }}>All</option>
+                    <option value="yes" {{ 'selected' if suspended == 'yes' }}>Suspended</option>
+                    <option value="no" {{ 'selected' if suspended == 'no' }}>Active</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-block">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="mb-3 small-print">
+        {{ total }} user{{ '' if total == 1 else 's' }}
+        {% if total_pages > 1 %} &middot; page {{ page }} of {{ total_pages }}{% endif %}
+    </div>
+
+    <!-- Users table -->
+    <section class="pb-3">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Users</h2>
+                <div class="head-action">
+                    <span class="mark-box is-closed">{{ total }} shown</span>
+                </div>
+            </div>
+
+            {% if users %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th class="text-end">Bids</th>
+                            <th class="text-end">Lots</th>
+                            <th class="text-end">Wins</th>
+                            <th>Outstanding</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <span class="t-strong">{{ user.first_name }} {{ user.last_name }}</span>
+                                <div class="small-print">@{{ user.username }}</div>
+                            </td>
+                            <td class="t-quiet">{{ user.email }}</td>
+                            <td>
+                                <span class="mark-box {{ 'is-accent' if user.user_type == 'admin' else ('is-draft' if user.user_type == 'seller' else 'is-closed') }}">
+                                    {{ user.user_type }}
+                                </span>
+                            </td>
+                            <td class="text-end num">{{ user.bid_count or 0 }}</td>
+                            <td class="text-end num">{{ user.lot_count or 0 }}</td>
+                            <td class="text-end num">{{ user.wins or 0 }}</td>
+                            <td>
+                                {% if user.outstanding %}
+                                    <span class="mark-box is-draft">{{ user.outstanding }} unpaid</span>
+                                {% else %}
+                                    <span class="mark-box is-live">Clear</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_suspended %}
+                                    <span class="mark-box is-accent">Suspended</span>
+                                {% else %}
+                                    <span class="mark-box is-live">Active</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end flex-wrap">
+                                    <!-- Suspend / Unsuspend -->
+                                    <form method="POST" action="{{ url_for('admin_user_suspend', user_id=user.user_id) }}" class="d-inline">
+                                        {% if user.is_suspended %}
+                                        <button type="submit" class="btn btn-quiet btn-sm">Reinstate</button>
+                                        {% else %}
+                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Suspend {{ user.first_name }} {{ user.last_name }}? They will not be able to log in.')">
+                                            Suspend
+                                        </button>
+                                        {% endif %}
+                                    </form>
+
+                                    <!-- Change role -->
+                                    <form method="POST" action="{{ url_for('admin_user_role', user_id=user.user_id) }}" class="d-inline">
+                                        <select name="user_type" class="form-select form-select-sm d-inline-block" style="width:auto"
+                                                onchange="if(this.value !== '{{ user.user_type }}' && confirm('Change role to ' + this.value + '?')) this.form.submit(); else this.value = '{{ user.user_type }}'">
+                                            <option value="buyer" {{ 'selected' if user.user_type == 'buyer' }}>Buyer</option>
+                                            <option value="seller" {{ 'selected' if user.user_type == 'seller' }}>Seller</option>
+                                            <option value="admin" {{ 'selected' if user.user_type == 'admin' }}>Admin</option>
+                                        </select>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <div class="panel-foot d-flex justify-content-between align-items-center px-3 py-2">
+                {% if page > 1 %}
+                    <a href="{{ url_for('admin_users', q=q, role=role, suspended=suspended, page=page-1) }}"
+                       class="btn btn-outline btn-sm">&larr; Prev</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+                <span class="small-print">page {{ page }} / {{ total_pages }}</span>
+                {% if page < total_pages %}
+                    <a href="{{ url_for('admin_users', q=q, role=role, suspended=suspended, page=page+1) }}"
+                       class="btn btn-outline btn-sm">Next &rarr;</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+                {{ blank('fa-users', 'No users found', 'User accounts will appear here once they register.') }}
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

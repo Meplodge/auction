@@ -2,6 +2,7 @@
 {% from "_macros.html" import lot_card, blank %}
 
 {% block title %}Lots — BidHouse{% endblock %}
+{% block body_class %}is-search{% endblock %}
 
 {% block content %}
 {% set sel_category = request.args.get('category', '') %}
@@ -44,9 +45,9 @@
         {% endfor %}
     </div>
 
-    <div class="row g-4">
+    <div class="search-layout">
         <!-- Refine -->
-        <aside class="col-lg-3">
+        <aside class="search-refine">
             <form method="GET" action="{{ url_for('search') }}" class="panel p-4 reveal" style="position:sticky;top:96px">
                 <div class="fieldset-title"><span>Refine</span></div>
 
@@ -94,7 +95,7 @@
         </aside>
 
         <!-- Results -->
-        <div class="col-lg-9">
+        <div class="search-results">
             {% if auctions %}
             <div class="row g-3 g-lg-4 lot-grid-3">
                 {% for auction in auctions %}

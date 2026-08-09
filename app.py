@@ -236,6 +236,29 @@ def get_categories():
     except:
         return ['Electronics', 'Furniture', 'Cars', 'Fashion', 'Luxury', 'Books']
 
+def log_admin_action(cur, action, target_type, target_id, note=None):
+    """Record an admin mutation in the audit log. Uses the passed cursor so it
+    participates in the caller's transaction."""
+    try:
+        cur.execute("""
+            INSERT INTO admin_actions (admin_id, action, target_type, target_id, note)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (current_user.id, action, target_type, target_id, note))
+    except Exception as e:
+        print(f"Error logging admin action: {e}")
+
+def admin_required(fn):
+    """Decorator that guards a route so only admins can reach it."""
+    from functools import wraps
+    @wraps(fn)
+    @login_required
+    def wrapper(*args, **kwargs):
+        if current_user.user_type != 'admin':
+            flash('Access denied. Admin only.', 'danger')
+            return redirect(url_for('index'))
+        return fn(*args, **kwargs)
+    return wrapper
+
 def get_auction_statistics():
     try:
         cur = mysql.connection.cursor()
@@ -391,6 +414,9 @@ def login():
             cur.close()
 
             if user and check_password_hash(user['password'], password):
+                if user.get('is_suspended'):
+                    flash('This account has been suspended. Contact an administrator.', 'danger')
+                    return render_template('login.html')
                 user_obj = User(
                     user_id=user['user_id'],
                     username=user['username'],
@@ -507,6 +533,24 @@ def admin_dashboard():
         """)
         uninvoiced = cur.fetchall()
 
+        # Needs-attention counts for the summary strip
+        cur.execute("SELECT COUNT(*) as total FROM payments WHERE payment_status = 'pending'")
+        pending_payments = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM bids WHERE status = 'removed'")
+        removed_bids = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) as total FROM users WHERE is_suspended = 1")
+        suspended_users = cur.fetchone()['total']
+
+        # Recent audit log entries
+        cur.execute("""
+            SELECT aa.*, u.first_name as admin_first_name, u.last_name as admin_last_name
+            FROM admin_actions aa
+            JOIN users u ON aa.admin_id = u.user_id
+            ORDER BY aa.created_at DESC
+            LIMIT 15
+        """)
+        audit_log = cur.fetchall()
+
         cur.close()
 
         bids_series = daily_series("""
@@ -533,7 +577,11 @@ def admin_dashboard():
                               all_payments=all_payments,
                               uninvoiced=uninvoiced,
                               bids_series=bids_series,
-                              revenue_series=revenue_series)
+                              revenue_series=revenue_series,
+                              pending_payments=pending_payments,
+                              removed_bids=removed_bids,
+                              suspended_users=suspended_users,
+                              audit_log=audit_log)
     except Exception as e:
         print(f"Admin dashboard error: {e}")
         flash('Error loading admin dashboard', 'danger')
@@ -942,6 +990,369 @@ def payments():
         return render_template('payments.html', payments=[], is_admin=is_admin)
 
 # ============================================
+# ADMIN LOT MANAGEMENT
+# ============================================
+
+@app.route('/admin/lots')
+@login_required
+def admin_lots():
+    """Every lot on the platform, with status and edit controls."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    q = request.args.get('q', '').strip()
+    status = request.args.get('status', 'all')
+    category = request.args.get('category', '').strip()
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = 20
+    offset = (page - 1) * per_page
+
+    try:
+        cur = mysql.connection.cursor()
+
+        sql = """
+            SELECT a.*, u.username as seller_username,
+                   u.first_name as seller_first_name, u.last_name as seller_last_name,
+                   (SELECT image_url FROM auction_images WHERE auction_id = a.auction_id AND is_primary = TRUE LIMIT 1) as primary_image
+            FROM auctions a
+            LEFT JOIN users u ON a.seller_id = u.user_id
+            WHERE 1=1
+        """
+        params = []
+
+        if q:
+            sql += " AND (a.title LIKE %s OR a.description LIKE %s)"
+            term = f"%{q}%"
+            params.extend([term, term])
+        if status in ('active', 'closed', 'draft'):
+            sql += " AND a.status = %s"
+            params.append(status)
+        if category:
+            sql += " AND a.category = %s"
+            params.append(category)
+
+        # Count total for pagination
+        count_sql = f"SELECT COUNT(*) as total FROM ({sql}) AS sub"
+        cur.execute(count_sql, params)
+        total = cur.fetchone()['total']
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        sql += " ORDER BY a.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+        cur.execute(sql, params)
+        lots = cur.fetchall()
+
+        cur.close()
+
+        return render_template('admin_lots.html', lots=lots, q=q, status=status,
+                               category=category, categories=get_categories(),
+                               page=page, total_pages=total_pages, total=total)
+    except Exception as e:
+        print(f"Admin lots error: {e}")
+        flash('Error loading lots.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/lot/<int:auction_id>/status', methods=['POST'])
+@login_required
+def admin_lot_status(auction_id):
+    """Change a lot's status (draft / active / closed)."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    new_status = request.form.get('status', '').strip()
+    if new_status not in ('draft', 'active', 'closed'):
+        flash('Invalid status.', 'danger')
+        return redirect(request.referrer or url_for('admin_lots'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT title FROM auctions WHERE auction_id = %s", (auction_id,))
+        lot = cur.fetchone()
+        if not lot:
+            cur.close()
+            flash('Lot not found.', 'warning')
+            return redirect(url_for('admin_lots'))
+
+        cur.execute("UPDATE auctions SET status = %s WHERE auction_id = %s",
+                    (new_status, auction_id))
+        log_admin_action(cur, f'set_status_{new_status}', 'auction', auction_id,
+                         note=lot['title'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash(f'Lot status set to {new_status}.', 'success')
+    except Exception as e:
+        print(f"Admin lot status error: {e}")
+        flash('Error updating lot status.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_lots'))
+
+@app.route('/admin/lot/<int:auction_id>/edit', methods=['POST'])
+@login_required
+def admin_lot_edit(auction_id):
+    """Edit a lot's title, category, description and pricing."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    title = request.form.get('title', '').strip()
+    category = request.form.get('category', '').strip() or None
+    description = request.form.get('description', '').strip()
+    starting_price = request.form.get('starting_price', '').strip()
+    min_bid_increment = request.form.get('min_bid_increment', '').strip()
+
+    if not title:
+        flash('Title is required.', 'danger')
+        return redirect(request.referrer or url_for('admin_lots'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT title FROM auctions WHERE auction_id = %s", (auction_id,))
+        lot = cur.fetchone()
+        if not lot:
+            cur.close()
+            flash('Lot not found.', 'warning')
+            return redirect(url_for('admin_lots'))
+
+        fields = ["title = %s", "category = %s", "description = %s"]
+        values = [title, category, description]
+
+        if starting_price:
+            fields.append("starting_price = %s")
+            values.append(float(starting_price))
+        if min_bid_increment:
+            fields.append("min_bid_increment = %s")
+            values.append(float(min_bid_increment))
+
+        values.append(auction_id)
+        cur.execute(f"UPDATE auctions SET {', '.join(fields)} WHERE auction_id = %s", values)
+        log_admin_action(cur, 'edit_lot', 'auction', auction_id, note=title)
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Lot updated.', 'success')
+    except Exception as e:
+        print(f"Admin lot edit error: {e}")
+        flash('Error updating the lot.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_lots'))
+
+@app.route('/admin/lot/<int:auction_id>/cancel', methods=['POST'])
+@login_required
+def admin_lot_cancel(auction_id):
+    """Cancel a lot: mark it closed with no winner and void accepted bids."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('A reason is required to cancel a lot.', 'danger')
+        return redirect(request.referrer or url_for('admin_lots'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT title FROM auctions WHERE auction_id = %s", (auction_id,))
+        lot = cur.fetchone()
+        if not lot:
+            cur.close()
+            flash('Lot not found.', 'warning')
+            return redirect(url_for('admin_lots'))
+
+        cur.execute("""
+            UPDATE bids SET status = 'removed',
+                            removed_reason = %s, removed_at = NOW(), removed_by = %s
+            WHERE auction_id = %s AND status = 'accepted'
+        """, (f"Lot cancelled: {reason}", current_user.id, auction_id))
+
+        cur.execute("""
+            UPDATE auctions SET status = 'closed', winner_id = NULL,
+                                current_price = starting_price, total_bids = 0
+            WHERE auction_id = %s
+        """, (auction_id,))
+
+        log_admin_action(cur, 'cancel_lot', 'auction', auction_id, note=reason)
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Lot cancelled. All bids were voided.', 'success')
+    except Exception as e:
+        print(f"Admin lot cancel error: {e}")
+        flash('Error cancelling the lot.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_lots'))
+
+@app.route('/admin/lot/<int:auction_id>/delete', methods=['POST'])
+@login_required
+def admin_lot_delete(auction_id):
+    """Permanently delete a lot and its dependent rows."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT title FROM auctions WHERE auction_id = %s", (auction_id,))
+        lot = cur.fetchone()
+        if not lot:
+            cur.close()
+            flash('Lot not found.', 'warning')
+            return redirect(url_for('admin_lots'))
+
+        # FK ON DELETE CASCADE handles images, bids, payments, watchlist
+        cur.execute("DELETE FROM auctions WHERE auction_id = %s", (auction_id,))
+        log_admin_action(cur, 'delete_lot', 'auction', auction_id, note=lot['title'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Lot permanently deleted.', 'success')
+    except Exception as e:
+        print(f"Admin lot delete error: {e}")
+        flash('Error deleting the lot.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_lots'))
+
+# ============================================
+# ADMIN USER MANAGEMENT
+# ============================================
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    """Every user on the platform, with suspend and role controls."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    q = request.args.get('q', '').strip()
+    role = request.args.get('role', 'all')
+    suspended = request.args.get('suspended', 'all')
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = 20
+    offset = (page - 1) * per_page
+
+    try:
+        cur = mysql.connection.cursor()
+
+        sql = """
+            SELECT u.*,
+                   (SELECT COUNT(*) FROM bids WHERE bidder_id = u.user_id AND status = 'accepted') as bid_count,
+                   (SELECT COUNT(*) FROM auctions WHERE seller_id = u.user_id) as lot_count,
+                   (SELECT COUNT(*) FROM auctions WHERE winner_id = u.user_id) as wins,
+                   (SELECT COUNT(*) FROM payments WHERE buyer_id = u.user_id AND payment_status = 'pending') as outstanding
+            FROM users u
+            WHERE 1=1
+        """
+        params = []
+
+        if q:
+            sql += " AND (u.username LIKE %s OR u.email LIKE %s OR u.first_name LIKE %s OR u.last_name LIKE %s)"
+            term = f"%{q}%"
+            params.extend([term, term, term, term])
+        if role in ('admin', 'seller', 'buyer'):
+            sql += " AND u.user_type = %s"
+            params.append(role)
+        if suspended == 'yes':
+            sql += " AND u.is_suspended = 1"
+        elif suspended == 'no':
+            sql += " AND u.is_suspended = 0"
+
+        count_sql = f"SELECT COUNT(*) as total FROM ({sql}) AS sub"
+        cur.execute(count_sql, params)
+        total = cur.fetchone()['total']
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        sql += " ORDER BY u.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+        cur.execute(sql, params)
+        users = cur.fetchall()
+
+        cur.close()
+
+        return render_template('admin_users.html', users=users, q=q, role=role,
+                               suspended=suspended, page=page,
+                               total_pages=total_pages, total=total)
+    except Exception as e:
+        print(f"Admin users error: {e}")
+        flash('Error loading users.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/user/<int:user_id>/suspend', methods=['POST'])
+@login_required
+def admin_user_suspend(user_id):
+    """Suspend or unsuspend a user."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    if user_id == current_user.id:
+        flash('You cannot suspend your own account.', 'warning')
+        return redirect(request.referrer or url_for('admin_users'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT username, is_suspended FROM users WHERE user_id = %s", (user_id,))
+        user = cur.fetchone()
+        if not user:
+            cur.close()
+            flash('User not found.', 'warning')
+            return redirect(url_for('admin_users'))
+
+        new_state = 0 if user['is_suspended'] else 1
+        cur.execute("UPDATE users SET is_suspended = %s WHERE user_id = %s", (new_state, user_id))
+        log_admin_action(cur, 'suspend' if new_state else 'unsuspend', 'user', user_id,
+                         note=user['username'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash('User suspended.' if new_state else 'User reinstated.', 'success')
+    except Exception as e:
+        print(f"Admin user suspend error: {e}")
+        flash('Error updating user status.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_users'))
+
+@app.route('/admin/user/<int:user_id>/role', methods=['POST'])
+@login_required
+def admin_user_role(user_id):
+    """Change a user's role."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    new_role = request.form.get('user_type', '').strip()
+    if new_role not in ('admin', 'seller', 'buyer'):
+        flash('Invalid role.', 'danger')
+        return redirect(request.referrer or url_for('admin_users'))
+
+    if user_id == current_user.id and new_role != 'admin':
+        flash('You cannot demote your own admin account.', 'warning')
+        return redirect(request.referrer or url_for('admin_users'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT username FROM users WHERE user_id = %s", (user_id,))
+        user = cur.fetchone()
+        if not user:
+            cur.close()
+            flash('User not found.', 'warning')
+            return redirect(url_for('admin_users'))
+
+        cur.execute("UPDATE users SET user_type = %s WHERE user_id = %s", (new_role, user_id))
+        log_admin_action(cur, f'role_{new_role}', 'user', user_id, note=user['username'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash(f'Role changed to {new_role}.', 'success')
+    except Exception as e:
+        print(f"Admin user role error: {e}")
+        flash('Error changing user role.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_users'))
+
+# ============================================
 # ADMIN BID MODERATION
 # ============================================
 
@@ -954,6 +1365,10 @@ def admin_bids():
         return redirect(url_for('index'))
 
     status = request.args.get('status', 'all')
+    q = request.args.get('q', '').strip()
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = 25
+    offset = (page - 1) * per_page
 
     try:
         cur = mysql.connection.cursor()
@@ -965,13 +1380,24 @@ def admin_bids():
             JOIN users u ON b.bidder_id = u.user_id
             JOIN auctions a ON b.auction_id = a.auction_id
             LEFT JOIN users r ON b.removed_by = r.user_id
+            WHERE 1=1
         """
-        params = ()
+        params = []
         if status in ('accepted', 'removed'):
-            sql += " WHERE b.status = %s"
-            params = (status,)
-        sql += " ORDER BY b.bid_time DESC LIMIT 300"
+            sql += " AND b.status = %s"
+            params.append(status)
+        if q:
+            sql += " AND (u.username LIKE %s OR u.email LIKE %s OR u.first_name LIKE %s OR u.last_name LIKE %s OR a.title LIKE %s)"
+            term = f"%{q}%"
+            params.extend([term, term, term, term, term])
 
+        count_sql = f"SELECT COUNT(*) as total FROM ({sql}) AS sub"
+        cur.execute(count_sql, params)
+        total = cur.fetchone()['total']
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        sql += " ORDER BY b.bid_time DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
         cur.execute(sql, params)
         bids = cur.fetchall()
 
@@ -985,7 +1411,9 @@ def admin_bids():
         totals = cur.fetchone()
         cur.close()
 
-        return render_template('admin_bids.html', bids=bids, totals=totals, status=status)
+        return render_template('admin_bids.html', bids=bids, totals=totals,
+                               status=status, q=q, page=page,
+                               total_pages=total_pages, total=total)
     except Exception as e:
         print(f"Admin bids error: {e}")
         flash('Error loading bids.', 'danger')
@@ -1026,6 +1454,7 @@ def admin_remove_bid(bid_id):
         """, (reason, current_user.id, bid_id))
 
         recalculate_auction(cur, bid['auction_id'])
+        log_admin_action(cur, 'remove_bid', 'bid', bid_id, note=reason)
         mysql.connection.commit()
         cur.close()
 
@@ -1060,6 +1489,7 @@ def admin_restore_bid(bid_id):
         """, (bid_id,))
 
         recalculate_auction(cur, bid['auction_id'])
+        log_admin_action(cur, 'restore_bid', 'bid', bid_id)
         mysql.connection.commit()
         cur.close()
 
@@ -1096,6 +1526,8 @@ def admin_raise_invoice(auction_id):
 
         created = create_invoice(cur, auction['auction_id'], auction['winner_id'],
                                  auction['seller_id'], auction['current_price'])
+        if created:
+            log_admin_action(cur, 'raise_invoice', 'auction', auction_id)
         mysql.connection.commit()
         cur.close()
 
@@ -1131,6 +1563,8 @@ def admin_settle_payment(payment_id):
         """, (payment_method, shipping_address, payment_id))
 
         if cur.rowcount > 0:
+            log_admin_action(cur, 'settle_payment', 'payment', payment_id,
+                             note=payment_method)
             mysql.connection.commit()
             flash('Payment recorded for the bidder.', 'success')
         else:
@@ -1158,6 +1592,7 @@ def admin_reopen_payment(payment_id):
         """, (payment_id,))
 
         if cur.rowcount > 0:
+            log_admin_action(cur, 'reopen_payment', 'payment', payment_id)
             mysql.connection.commit()
             flash('Payment reopened as pending.', 'success')
         else:

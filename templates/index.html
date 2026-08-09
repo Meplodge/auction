@@ -2,6 +2,7 @@
 {% from "_macros.html" import lot_card, blank, mark %}
 
 {% block title %}BidHouse — Live lots{% endblock %}
+{% block body_class %}is-home{% endblock %}
 
 {% block content %}
 {% set live = auctions|selectattr('status', 'equalto', 'active')|list %}
@@ -12,6 +13,13 @@
 
     <!-- Hero -->
     <section class="hero mt-4 reveal">
+        <div class="hero-bg" aria-hidden="true">
+            {% set hero_imgs = auctions | map(attribute='primary_image') | reject('none') | list | unique | list %}
+            {% for img in hero_imgs[:5] %}
+            <div class="hero-slide" style="background-image:url('{{ url_for('static', filename='uploads/' + img) }}'); animation-delay:{{ loop.index0 * 6 }}s"></div>
+            {% endfor %}
+        </div>
+        <div class="hero-content">
         <div class="row align-items-center g-4">
             <div class="col-lg-7 text-center">
                 <span class="hero-pill mb-3"><i class="fas fa-circle" style="font-size:.4rem"></i> {{ live|length }} lots open for bidding</span>
@@ -54,6 +62,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </section>
 
@@ -131,7 +140,7 @@
         {% if rest %}
         <div class="row g-3 g-lg-4 lot-grid">
             {% for auction in rest %}
-            <div class="col-6 col-lg-4 col-xl-3">
+            <div class="col-6 col-lg-4 col-xl-4">
                 {{ lot_card(auction, delay=loop.index0 * 55) }}
             </div>
             {% endfor %}

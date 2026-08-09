@@ -1,0 +1,267 @@
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
+
+{% block title %}Lot management — BidHouse{% endblock %}
+
+{% block dash %}
+    <header class="masthead pt-0">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <h1>Lot management</h1>
+                <p class="lede">Edit, re-categorise, cancel or delete any lot on the platform.</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline btn-sm">Back to dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filters -->
+    <form method="GET" action="{{ url_for('admin_lots') }}" class="panel p-3 reveal mb-4">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="search" class="form-control" name="q" value="{{ q or '' }}"
+                       placeholder="Title or description">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    <option value="all" {{ 'selected' if status == 'all' }}>All statuses</option>
+                    <option value="active" {{ 'selected' if status == 'active' }}>Active</option>
+                    <option value="closed" {{ 'selected' if status == 'closed' }}>Closed</option>
+                    <option value="draft" {{ 'selected' if status == 'draft' }}>Draft</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Department</label>
+                <select class="form-select" name="category">
+                    <option value="" {{ 'selected' if not category }}>All departments</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat }}" {{ 'selected' if category == cat }}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-block">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="mb-3 small-print">
+        {{ total }} lot{{ '' if total == 1 else 's' }}
+        {% if total_pages > 1 %} &middot; page {{ page }} of {{ total_pages }}{% endif %}
+    </div>
+
+    <!-- Lots table -->
+    <section class="pb-3">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Lots</h2>
+                <div class="head-action">
+                    <span class="mark-box is-closed">{{ total }} shown</span>
+                </div>
+            </div>
+
+            {% if lots %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:60px">Lot</th>
+                            <th>Title</th>
+                            <th>Seller</th>
+                            <th>Category</th>
+                            <th class="text-end">Start</th>
+                            <th class="text-end">Current</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in lots %}
+                        <tr>
+                            <td><span class="rank">{{ '%03d'|format(lot.auction_id) }}</span></td>
+                            <td>
+                                <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}"
+                                   class="t-strong link-underline">{{ lot.title }}</a>
+                                {% if lot.total_bids %}
+                                <div class="small-print">{{ lot.total_bids }} bid{{ '' if lot.total_bids == 1 else 's' }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="t-quiet">{{ lot.seller_first_name }} {{ lot.seller_last_name }}</td>
+                            <td class="t-quiet">{{ lot.category or '—' }}</td>
+                            <td class="text-end t-figure">${{ "{:,.0f}".format(lot.starting_price) }}</td>
+                            <td class="text-end t-figure">${{ "{:,.0f}".format(lot.current_price) }}</td>
+                            <td>
+                                <span class="mark-box {{ 'is-live' if lot.status == 'active' else ('is-closed' if lot.status == 'closed' else 'is-draft') }}">
+                                    {{ lot.status }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end flex-wrap">
+                                    <!-- Status toggle -->
+                                    <form method="POST" action="{{ url_for('admin_lot_status', auction_id=lot.auction_id) }}" class="d-inline">
+                                        <input type="hidden" name="status" value="{{ 'closed' if lot.status == 'active' else 'active' }}">
+                                        <button type="submit" class="btn btn-quiet btn-sm"
+                                                onclick="return confirm('Set this lot to {{ 'closed' if lot.status == 'active' else 'active' }}?')">
+                                            {{ 'Close' if lot.status == 'active' else 'Activate' }}
+                                        </button>
+                                    </form>
+
+                                    <!-- Edit -->
+                                    <button type="button" class="btn btn-quiet btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#editLot{{ lot.auction_id }}">Edit</button>
+
+                                    <!-- Cancel -->
+                                    {% if lot.status == 'active' %}
+                                    <button type="button" class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#cancelLot{{ lot.auction_id }}">Cancel</button>
+                                    {% endif %}
+
+                                    <!-- Delete -->
+                                    <button type="button" class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#deleteLot{{ lot.auction_id }}">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <div class="panel-foot d-flex justify-content-between align-items-center px-3 py-2">
+                {% if page > 1 %}
+                    <a href="{{ url_for('admin_lots', q=q, status=status, category=category, page=page-1) }}"
+                       class="btn btn-outline btn-sm">&larr; Prev</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+                <span class="small-print">page {{ page }} / {{ total_pages }}</span>
+                {% if page < total_pages %}
+                    <a href="{{ url_for('admin_lots', q=q, status=status, category=category, page=page+1) }}"
+                       class="btn btn-outline btn-sm">Next &rarr;</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+                {{ blank('fa-box-open', 'No lots found',
+                         'Lots will appear here once sellers start consigning items.',
+                         url_for('search'), 'Browse catalogue') }}
+            {% endif %}
+        </div>
+    </section>
+
+<!-- Edit dialogs -->
+{% for lot in lots %}
+<div class="modal fade" id="editLot{{ lot.auction_id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit lot {{ '%03d'|format(lot.auction_id) }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_lot_edit', auction_id=lot.auction_id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" name="title" value="{{ lot.title }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" class="form-control" name="category" value="{{ lot.category or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="4">{{ lot.description or '' }}</textarea>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">Starting price ($)</label>
+                            <input type="number" class="form-control" name="starting_price" step="0.01" min="0"
+                                   value="{{ "{:.2f}".format(lot.starting_price) }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Min bid increment ($)</label>
+                            <input type="number" class="form-control" name="min_bid_increment" step="0.01" min="0"
+                                   value="{{ "{:.2f}".format(lot.min_bid_increment) }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Cancel dialogs -->
+{% for lot in lots %}
+    {% if lot.status == 'active' %}
+    <div class="modal fade" id="cancelLot{{ lot.auction_id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cancel lot {{ '%03d'|format(lot.auction_id) }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_lot_cancel', auction_id=lot.auction_id) }}">
+                    <div class="modal-body">
+                        <span class="overline">{{ lot.title }}</span>
+                        <p class="small-print mt-2 mb-4">
+                            Cancelling closes the lot with no winner and voids all accepted bids.
+                            Bidders will see the reason below.
+                        </p>
+                        <div>
+                            <label class="form-label">Reason for cancellation</label>
+                            <textarea class="form-control" name="reason" rows="3"
+                                      placeholder="e.g. Item withdrawn by seller, or listing was incorrect."
+                                      required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Cancel lot</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<!-- Delete dialogs -->
+{% for lot in lots %}
+<div class="modal fade" id="deleteLot{{ lot.auction_id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete lot {{ '%03d'|format(lot.auction_id) }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_lot_delete', auction_id=lot.auction_id) }}">
+                <div class="modal-body">
+                    <span class="overline">{{ lot.title }}</span>
+                    <p class="small-print mt-2 mb-0">
+                        This permanently removes the lot, its images, bids and payments.
+                        This cannot be undone.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Keep it</button>
+                    <button type="submit" class="btn btn-danger">Delete permanently</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

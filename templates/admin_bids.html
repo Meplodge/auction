@@ -31,12 +31,37 @@
         <a href="{{ url_for('admin_bids', status='removed') }}" class="{{ 'is-on' if status == 'removed' }}">Removed</a>
     </div>
 
-    <section class="mt-4 pb-3">
+    <!-- Search -->
+    <form method="GET" action="{{ url_for('admin_bids') }}" class="panel p-3 reveal mt-4">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label">Search bids</label>
+                <input type="search" class="form-control" name="q" value="{{ q or '' }}"
+                       placeholder="Bidder name, email or lot title">
+            </div>
+            <div class="col-md-2">
+                <input type="hidden" name="status" value="{{ status }}">
+                <button type="submit" class="btn btn-primary btn-block">Search</button>
+            </div>
+            <div class="col-md-2 text-md-end">
+                {% if q %}
+                <a href="{{ url_for('admin_bids', status=status) }}" class="btn btn-outline btn-sm">Clear</a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    <div class="mt-3 mb-2 small-print">
+        {{ total }} bid{{ '' if total == 1 else 's' }}
+        {% if total_pages > 1 %} &middot; page {{ page }} of {{ total_pages }}{% endif %}
+    </div>
+
+    <section class="pb-3">
         <div class="panel reveal">
             <div class="panel-head">
                 <h2 class="title-md mb-0">Bids</h2>
                 <div class="head-action">
-                    <span class="mark-box is-closed">{{ bids|length }} shown</span>
+                    <span class="mark-box is-closed">{{ total }} shown</span>
                 </div>
             </div>
 
@@ -94,6 +119,25 @@
                     </tbody>
                 </table>
             </div>
+
+            {% if total_pages > 1 %}
+            <div class="panel-foot d-flex justify-content-between align-items-center px-3 py-2">
+                {% if page > 1 %}
+                    <a href="{{ url_for('admin_bids', q=q, status=status, page=page-1) }}"
+                       class="btn btn-outline btn-sm">&larr; Prev</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+                <span class="small-print">page {{ page }} / {{ total_pages }}</span>
+                {% if page < total_pages %}
+                    <a href="{{ url_for('admin_bids', q=q, status=status, page=page+1) }}"
+                       class="btn btn-outline btn-sm">Next &rarr;</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+            </div>
+            {% endif %}
+
             {% else %}
                 {{ blank('fa-gavel', 'No bids to review',
                          'Bids appear here as soon as buyers start bidding.',

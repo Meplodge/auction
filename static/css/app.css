@@ -250,6 +250,39 @@ body.is-dash .app-footer > .container {
     max-width: calc(1760px - 2 * clamp(1rem, 2.2vw, 2.25rem));
 }
 
+/* Search page uses a wider canvas so lot cards breathe and side margins fill */
+body.is-search .app-nav > .container,
+body.is-search .app-footer > .container,
+body.is-search main > .container {
+    max-width: 1600px;
+}
+
+/* Search layout: fixed-width refine sidebar, fluid results column.
+   Collapses to a single stacked column below the lg breakpoint. */
+.search-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.search-refine { min-width: 0; }
+
+.search-results { min-width: 0; }
+
+@media (max-width: 991.98px) {
+    .search-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Home page uses a wider canvas so the current-sale grid fills the side margins */
+body.is-home .app-nav > .container,
+body.is-home .app-footer > .container,
+body.is-home main > .container {
+    max-width: 1600px;
+}
+
 .side {
     position: sticky;
     top: 88px;
@@ -414,7 +447,6 @@ body.is-dash .app-footer > .container {
     outline: none;
     background: var(--surface);
     border-color: var(--brand-400);
-    box-shadow: 0 0 0 4px var(--brand-tint);
 }
 
 .nav-search button {
@@ -781,7 +813,7 @@ body.is-dash .app-footer > .container {
 }
 
 .lot-tag.is-live { color: var(--brand-600); }
-.lot-tag.is-live::before { background: var(--brand-400); box-shadow: 0 0 0 3px rgba(35, 160, 108, .2); }
+.lot-tag.is-live::before { background: var(--brand-400); }
 .lot-tag.is-closed { color: var(--ink-60); }
 
 .lot-count {
@@ -952,9 +984,7 @@ body.is-dash .app-footer > .container {
 .hero {
     position: relative;
     overflow: hidden;
-    background-image:
-        linear-gradient(150deg, rgba(16, 121, 79, .92) 0%, rgba(12, 97, 65, .93) 55%, rgba(8, 64, 44, .92) 100%),
-        url('../uploads/seed_1_vintage-rolex-submariner-watch_1.jpg');
+    background-color: #0a0d10;
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
@@ -962,6 +992,50 @@ body.is-dash .app-footer > .container {
     color: #fff;
     padding: 3rem;
     box-shadow: var(--sh-3);
+}
+
+/* Crossfading background carousel */
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.hero-slide {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: hero-fade 30s infinite;
+    will-change: opacity;
+}
+
+.hero-slide:first-child { opacity: 1; }
+
+/* Dark bottom-to-top overlay sits above the slides, below the content */
+.hero-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(8, 12, 16, .94) 0%, rgba(8, 12, 16, .55) 45%, rgba(8, 12, 16, .15) 100%);
+    z-index: 1;
+}
+
+.hero-content { position: relative; z-index: 2; }
+
+@keyframes hero-fade {
+    0%      { opacity: 0; }
+    3.33%   { opacity: 1; }
+    20%     { opacity: 1; }
+    23.33%  { opacity: 0; }
+    100%    { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-slide { animation: none; }
+    .hero-slide:first-child { opacity: 1; }
 }
 
 .hero::after {
@@ -972,7 +1046,7 @@ body.is-dash .app-footer > .container {
     width: 380px;
     height: 380px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%);
+    background: transparent;
 }
 
 .hero h1, .hero h2 { color: #fff; }
@@ -1059,7 +1133,7 @@ body.is-fixed-landing .nav-search input {
 }
 
 body.is-fixed-landing .nav-search input::placeholder { color: rgba(255, 255, 255, .72); }
-body.is-fixed-landing .nav-search input:focus { background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .45); box-shadow: 0 0 0 4px rgba(255, 255, 255, .15); }
+body.is-fixed-landing .nav-search input:focus { background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .45); }
 body.is-fixed-landing .nav-search button { color: #fff; }
 body.is-fixed-landing .nav-search button:hover { color: #fff; background: rgba(255, 255, 255, .18); }
 
@@ -1279,6 +1353,24 @@ body.is-fixed-landing .account-toggle .avatar { border-color: rgba(255, 255, 255
 .figure-cell.is-brand .trail { color: rgba(255, 255, 255, .75); }
 .figure-cell.is-brand .value { color: #fff; }
 
+.figure-cell.is-accent {
+    border-color: var(--brand-400);
+    box-shadow: var(--sh-1);
+}
+.figure-cell.is-accent .value { color: var(--brand-600); }
+
+a.figure-cell {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.panel-foot {
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
 .delta {
     display: inline-flex;
     align-items: center;
@@ -1324,7 +1416,6 @@ body.is-fixed-landing .account-toggle .avatar { border-color: rgba(255, 255, 255
 .form-control:focus,
 .form-select:focus {
     border-color: var(--brand-400);
-    box-shadow: 0 0 0 4px var(--brand-tint);
     background: var(--surface);
     outline: none;
 }
@@ -1808,6 +1899,137 @@ tr.is-leading { background: var(--brand-tint) !important; }
 /* ------------------------------------------------------------
    17. Auth
    ------------------------------------------------------------ */
+.auth-single {
+    max-width: 1280px;
+    margin: 1.5rem auto 3rem;
+    padding: 0 1.5rem;
+}
+
+.auth-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-3);
+    overflow: hidden;
+}
+
+.auth-banner {
+    position: relative;
+    background: #0a0d10;
+    color: #fff;
+    padding: 2rem 2.25rem;
+    overflow: hidden;
+}
+
+/* Crossfading background carousel for the auth banner */
+.auth-banner-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.auth-slide {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: auth-fade 24s infinite;
+    will-change: opacity;
+}
+
+.auth-slide:first-child { opacity: 1; }
+
+/* Dark gradient overlay so text stays readable over the images */
+.auth-banner-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(8, 12, 16, .92) 0%, rgba(8, 12, 16, .7) 50%, rgba(8, 12, 16, .5) 100%);
+    z-index: 1;
+}
+
+.auth-banner-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+@keyframes auth-fade {
+    0%      { opacity: 0; }
+    4.17%   { opacity: 1; }
+    25%     { opacity: 1; }
+    29.17%  { opacity: 0; }
+    100%    { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-slide { animation: none; }
+    .auth-slide:first-child { opacity: 1; }
+}
+
+.auth-banner::after {
+    content: '';
+    position: absolute;
+    right: -100px;
+    bottom: -100px;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
+    z-index: 2;
+}
+
+.auth-banner-content > * { position: relative; z-index: 1; }
+.auth-banner h2 { color: #fff; font-size: clamp(1.4rem, 2.2vw, 1.8rem); letter-spacing: -.035em; }
+.auth-banner .lede { color: rgba(255, 255, 255, .76); font-size: .9rem; }
+.auth-banner .overline { color: rgba(255, 255, 255, .66); }
+.auth-banner .serif { color: #fff; }
+
+.auth-banner .quote {
+    font-family: var(--display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #fff;
+    letter-spacing: -.02em;
+}
+
+.auth-body {
+    padding: 2.25rem;
+}
+
+.auth-body .auth-form { width: 100%; max-width: none; }
+
+/* Split variant: green visual on the left, form on the right,
+   all inside one bordered card. */
+.auth-card-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    max-width: 100%;
+}
+
+.auth-card-split .auth-banner {
+    padding: 2.5rem;
+}
+
+.auth-card-split .auth-banner-content {
+    min-height: 100%;
+}
+
+.auth-card-split .auth-banner .rule { background: rgba(255, 255, 255, .22); }
+
+.auth-card-split .auth-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Legacy split layout kept for backward compatibility */
 .auth-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2116,6 +2338,10 @@ tr.is-leading { background: var(--brand-tint) !important; }
     .auth-split { grid-template-columns: 1fr; }
     .auth-visual { padding: 2.25rem; }
     .auth-form-col { padding: 2rem 1.5rem; }
+    .auth-single { max-width: 100%; }
+    .auth-banner { padding: 1.5rem; }
+    .auth-body { padding: 1.5rem; }
+    .auth-card-split { grid-template-columns: 1fr; max-width: 100%; }
 
     .lot-rail { position: static; }
 }
