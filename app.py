@@ -110,18 +110,116 @@ def get_dashboard_redirect(user_or_role):
         return url_for('buyer_dashboard')
 
 def update_auction_status():
+    """Close expired auctions, award them to the highest bidder and raise an invoice."""
     try:
         cur = mysql.connection.cursor()
-        # Close expired auctions
+
         cur.execute("""
-            UPDATE auctions 
-            SET status = 'closed' 
+            SELECT auction_id, seller_id, current_price
+            FROM auctions
             WHERE end_date < NOW() AND status = 'active'
         """)
+        expiring = cur.fetchall()
+
+        for auction in expiring:
+            cur.execute("""
+                SELECT bidder_id, bid_amount
+                FROM bids
+                WHERE auction_id = %s AND status = 'accepted'
+                ORDER BY bid_amount DESC, bid_time ASC
+                LIMIT 1
+            """, (auction['auction_id'],))
+            top = cur.fetchone()
+
+            cur.execute("""
+                UPDATE auctions
+                SET status = 'closed', winner_id = %s
+                WHERE auction_id = %s
+            """, (top['bidder_id'] if top else None, auction['auction_id']))
+
+            if top:
+                create_invoice(cur, auction['auction_id'], top['bidder_id'],
+                               auction['seller_id'], top['bid_amount'])
+
         mysql.connection.commit()
         cur.close()
     except Exception as e:
         print(f"Error updating auction status: {e}")
+
+def recalculate_auction(cur, auction_id):
+    """Recompute price, bid count and winner from the accepted bids only.
+
+    Called after an admin removes a bid so the lot reflects reality again.
+    """
+    cur.execute("""
+        SELECT COUNT(*) as bid_count, MAX(bid_amount) as top_amount
+        FROM bids
+        WHERE auction_id = %s AND status = 'accepted'
+    """, (auction_id,))
+    summary = cur.fetchone()
+
+    cur.execute("SELECT starting_price, status FROM auctions WHERE auction_id = %s", (auction_id,))
+    auction = cur.fetchone()
+    if not auction:
+        return
+
+    price = summary['top_amount'] if summary['top_amount'] is not None else auction['starting_price']
+
+    winner_id = None
+    if auction['status'] == 'closed' and summary['bid_count']:
+        cur.execute("""
+            SELECT bidder_id FROM bids
+            WHERE auction_id = %s AND status = 'accepted'
+            ORDER BY bid_amount DESC, bid_time ASC
+            LIMIT 1
+        """, (auction_id,))
+        top = cur.fetchone()
+        winner_id = top['bidder_id'] if top else None
+
+    cur.execute("""
+        UPDATE auctions
+        SET current_price = %s, total_bids = %s, winner_id = %s
+        WHERE auction_id = %s
+    """, (price, summary['bid_count'] or 0, winner_id, auction_id))
+
+def create_invoice(cur, auction_id, buyer_id, seller_id, amount):
+    """Insert a pending payment for a won lot unless one already exists."""
+    cur.execute("SELECT payment_id FROM payments WHERE auction_id = %s", (auction_id,))
+    if cur.fetchone():
+        return False
+
+    cur.execute("""
+        INSERT INTO payments (auction_id, buyer_id, seller_id, amount, payment_status)
+        VALUES (%s, %s, %s, %s, 'pending')
+    """, (auction_id, buyer_id, seller_id, amount))
+    return True
+
+def daily_series(sql, params=(), days=14):
+    """Return {labels, values} for the last `days` days, zero-filled.
+
+    `sql` must select a `day` (DATE) column and a `total` column.
+    """
+    today = datetime.now().date()
+    span = [today - timedelta(days=i) for i in range(days - 1, -1, -1)]
+    buckets = {d: 0 for d in span}
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute(sql, params)
+        for row in cur.fetchall():
+            day = row['day']
+            if hasattr(day, 'date'):
+                day = day.date()
+            if day in buckets:
+                buckets[day] = float(row['total'] or 0)
+        cur.close()
+    except Exception as e:
+        print(f"Error building daily series: {e}")
+
+    return {
+        'labels': [d.strftime('%d %b') for d in span],
+        'values': [buckets[d] for d in span]
+    }
 
 def get_categories():
     try:
@@ -153,7 +251,7 @@ def get_auction_statistics():
         cur.execute("SELECT COUNT(*) as total FROM users")
         total_users = cur.fetchone()['total']
         
-        cur.execute("SELECT COUNT(*) as total FROM bids")
+        cur.execute("SELECT COUNT(*) as total FROM bids WHERE status = 'accepted'")
         total_bids = cur.fetchone()['total']
         
         cur.execute("SELECT SUM(amount) as total FROM payments WHERE payment_status = 'completed'")
@@ -204,6 +302,18 @@ def index():
         print(f"Index error: {e}")
         flash('Error loading auctions. Please try again.', 'danger')
         return render_template('index.html', auctions=[], categories=[])
+
+@app.route('/fixed')
+def fixed():
+    """Non-scrolling fixed landing page."""
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT COUNT(*) as live FROM auctions WHERE status = 'active'")
+        live_count = cur.fetchone()['live']
+        cur.close()
+    except Exception:
+        live_count = 0
+    return render_template('fixed_landing.html', live_count=live_count)
 
 # ============================================
 # AUTHENTICATION ROUTES
@@ -331,14 +441,15 @@ def admin_dashboard():
     try:
         cur = mysql.connection.cursor()
         
-        # Recent activity
+        # Recent activity: every bid, including any an admin has removed
         cur.execute("""
-            SELECT b.*, u.username, a.title as auction_title
+            SELECT b.*, u.username, u.first_name, u.last_name,
+                   a.title as auction_title, a.status as auction_status
             FROM bids b
             JOIN users u ON b.bidder_id = u.user_id
             JOIN auctions a ON b.auction_id = a.auction_id
             ORDER BY b.bid_time DESC
-            LIMIT 10
+            LIMIT 40
         """)
         recent_bids = cur.fetchall()
         
@@ -349,13 +460,80 @@ def admin_dashboard():
             LIMIT 5
         """)
         recent_users = cur.fetchall()
-        
+
+        # Every bidder, with their activity, for admin oversight
+        cur.execute("""
+            SELECT u.user_id, u.username, u.first_name, u.last_name, u.email,
+                   u.user_type, u.created_at,
+                   (SELECT COUNT(*) FROM bids
+                     WHERE bidder_id = u.user_id AND status = 'accepted') as bid_count,
+                   (SELECT MAX(bid_amount) FROM bids
+                     WHERE bidder_id = u.user_id AND status = 'accepted') as highest_bid,
+                   (SELECT COUNT(*) FROM bids
+                     WHERE bidder_id = u.user_id AND status = 'removed') as removed_bids,
+                   (SELECT COUNT(*) FROM auctions WHERE winner_id = u.user_id) as wins,
+                   (SELECT COUNT(*) FROM payments
+                     WHERE buyer_id = u.user_id AND payment_status = 'pending') as outstanding
+            FROM users u
+            WHERE u.user_type = 'buyer'
+            ORDER BY bid_count DESC, u.created_at DESC
+        """)
+        bidders = cur.fetchall()
+
+        # All payments across the platform
+        cur.execute("""
+            SELECT p.*, a.title as auction_title,
+                   b.first_name as buyer_first_name, b.last_name as buyer_last_name,
+                   s.first_name as seller_first_name, s.last_name as seller_last_name
+            FROM payments p
+            JOIN auctions a ON p.auction_id = a.auction_id
+            JOIN users b ON p.buyer_id = b.user_id
+            JOIN users s ON p.seller_id = s.user_id
+            ORDER BY p.payment_status = 'completed', p.created_at DESC
+            LIMIT 25
+        """)
+        all_payments = cur.fetchall()
+
+        # Closed lots with a winner but no invoice yet
+        cur.execute("""
+            SELECT a.auction_id, a.title, a.current_price, a.end_date,
+                   a.winner_id, a.seller_id,
+                   w.first_name as winner_first_name, w.last_name as winner_last_name
+            FROM auctions a
+            JOIN users w ON a.winner_id = w.user_id
+            LEFT JOIN payments p ON p.auction_id = a.auction_id
+            WHERE a.status = 'closed' AND a.winner_id IS NOT NULL AND p.payment_id IS NULL
+            ORDER BY a.end_date DESC
+        """)
+        uninvoiced = cur.fetchall()
+
         cur.close()
-        
+
+        bids_series = daily_series("""
+            SELECT DATE(bid_time) as day, COUNT(*) as total
+            FROM bids
+            WHERE status = 'accepted'
+              AND bid_time >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(bid_time)
+        """)
+
+        revenue_series = daily_series("""
+            SELECT DATE(payment_date) as day, SUM(amount) as total
+            FROM payments
+            WHERE payment_status = 'completed'
+              AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(payment_date)
+        """)
+
         return render_template('admin_dashboard.html', 
                               stats=stats, 
                               recent_bids=recent_bids,
-                              recent_users=recent_users)
+                              recent_users=recent_users,
+                              bidders=bidders,
+                              all_payments=all_payments,
+                              uninvoiced=uninvoiced,
+                              bids_series=bids_series,
+                              revenue_series=revenue_series)
     except Exception as e:
         print(f"Admin dashboard error: {e}")
         flash('Error loading admin dashboard', 'danger')
@@ -372,7 +550,8 @@ def seller_dashboard():
         cur = mysql.connection.cursor()
         cur.execute("""
             SELECT a.*,
-                   (SELECT COUNT(*) FROM bids WHERE auction_id = a.auction_id) as bid_count,
+                   (SELECT COUNT(*) FROM bids
+                     WHERE auction_id = a.auction_id AND status = 'accepted') as bid_count,
                    (SELECT COUNT(*) FROM auction_images WHERE auction_id = a.auction_id) as image_count
             FROM auctions a
             WHERE a.seller_id = %s
@@ -386,14 +565,34 @@ def seller_dashboard():
                 COUNT(*) as total_auctions,
                 SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_auctions,
                 SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_auctions,
-                (SELECT COUNT(*) FROM bids WHERE auction_id IN (SELECT auction_id FROM auctions WHERE seller_id = %s)) as total_bids
+                (SELECT COUNT(*) FROM bids
+                  WHERE status = 'accepted'
+                    AND auction_id IN (SELECT auction_id FROM auctions WHERE seller_id = %s)) as total_bids
             FROM auctions
             WHERE seller_id = %s
         """, (current_user.id, current_user.id))
         stats = cur.fetchone()
         cur.close()
-        
-        return render_template('seller_dashboard.html', auctions=auctions, stats=stats)
+
+        bids_series = daily_series("""
+            SELECT DATE(b.bid_time) as day, COUNT(*) as total
+            FROM bids b
+            JOIN auctions a ON b.auction_id = a.auction_id
+            WHERE a.seller_id = %s AND b.status = 'accepted'
+              AND b.bid_time >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(b.bid_time)
+        """, (current_user.id,))
+
+        earnings_series = daily_series("""
+            SELECT DATE(payment_date) as day, SUM(amount) as total
+            FROM payments
+            WHERE seller_id = %s AND payment_status = 'completed'
+              AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(payment_date)
+        """, (current_user.id,))
+
+        return render_template('seller_dashboard.html', auctions=auctions, stats=stats,
+                              bids_series=bids_series, earnings_series=earnings_series)
     except Exception as e:
         print(f"Seller dashboard error: {e}")
         flash('Error loading seller dashboard', 'danger')
@@ -409,10 +608,11 @@ def buyer_dashboard():
     try:
         cur = mysql.connection.cursor()
 
-        # My bids
+        # My bids (removed bids stay visible so the reason can be shown)
         cur.execute("""
             SELECT b.*, a.title, a.status as auction_status, a.end_date,
-                   (SELECT MAX(bid_amount) FROM bids WHERE auction_id = b.auction_id) as highest_bid
+                   (SELECT MAX(bid_amount) FROM bids
+                     WHERE auction_id = b.auction_id AND status = 'accepted') as highest_bid
             FROM bids b
             JOIN auctions a ON b.auction_id = a.auction_id
             WHERE b.bidder_id = %s
@@ -444,10 +644,28 @@ def buyer_dashboard():
         
         cur.close()
 
+        bids_series = daily_series("""
+            SELECT DATE(bid_time) as day, COUNT(*) as total
+            FROM bids
+            WHERE bidder_id = %s AND status = 'accepted'
+              AND bid_time >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(bid_time)
+        """, (current_user.id,))
+
+        spend_series = daily_series("""
+            SELECT DATE(payment_date) as day, SUM(amount) as total
+            FROM payments
+            WHERE buyer_id = %s AND payment_status = 'completed'
+              AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+            GROUP BY DATE(payment_date)
+        """, (current_user.id,))
+
         return render_template('buyer_dashboard.html',
                               my_bids=my_bids,
                               watchlist=watchlist,
-                              wins=wins)
+                              wins=wins,
+                              bids_series=bids_series,
+                              spend_series=spend_series)
     except Exception as e:
         print(f"Buyer dashboard error: {e}")
         flash('Error loading buyer dashboard', 'danger')
@@ -545,12 +763,12 @@ def auction_details(auction_id):
         """, (auction_id,))
         images = cur.fetchall()
         
-        # Get bids
+        # Get bids (removed bids are excluded from the public history)
         cur.execute("""
             SELECT b.*, u.username, u.first_name, u.last_name
             FROM bids b
             JOIN users u ON b.bidder_id = u.user_id
-            WHERE b.auction_id = %s
+            WHERE b.auction_id = %s AND b.status = 'accepted'
             ORDER BY b.bid_amount DESC
         """, (auction_id,))
         bids = cur.fetchall()
@@ -609,9 +827,10 @@ def place_bid():
             cur.close()
             return redirect(url_for('auction_details', auction_id=auction_id))
         
+        # Bids are accepted automatically; an admin may remove one later.
         cur.execute("""
-            INSERT INTO bids (auction_id, bidder_id, bid_amount, is_auto_bid)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO bids (auction_id, bidder_id, bid_amount, is_auto_bid, status)
+            VALUES (%s, %s, %s, %s, 'accepted')
         """, (auction_id, current_user.id, bid_amount, is_auto_bid))
         
         cur.execute("""
@@ -623,7 +842,7 @@ def place_bid():
         mysql.connection.commit()
         cur.close()
         
-        flash(f'Bid of ${bid_amount} placed successfully!', 'success')
+        flash(f'Bid of ${bid_amount} accepted.', 'success')
         return redirect(url_for('auction_details', auction_id=auction_id))
     except Exception as e:
         print(f"Place bid error: {e}")
@@ -689,29 +908,266 @@ def remove_from_watchlist(auction_id):
 @app.route('/payments')
 @login_required
 def payments():
-    if current_user.user_type != 'buyer':
+    if current_user.user_type not in ['buyer', 'admin']:
         flash('Access denied.', 'danger')
         return redirect(url_for('index'))
-    
+
+    is_admin = current_user.user_type == 'admin'
+
     try:
         cur = mysql.connection.cursor()
-        cur.execute("""
+        sql = """
             SELECT p.*, a.title as auction_title, u.username as seller_username, 
-                   u.first_name as seller_first_name, u.last_name as seller_last_name
+                   u.first_name as seller_first_name, u.last_name as seller_last_name,
+                   b.first_name as buyer_first_name, b.last_name as buyer_last_name
             FROM payments p
             JOIN auctions a ON p.auction_id = a.auction_id
             JOIN users u ON p.seller_id = u.user_id
-            WHERE p.buyer_id = %s
-            ORDER BY p.created_at DESC
-        """, (current_user.id,))
+            JOIN users b ON p.buyer_id = b.user_id
+        """
+        params = ()
+        if not is_admin:
+            sql += " WHERE p.buyer_id = %s"
+            params = (current_user.id,)
+        sql += " ORDER BY p.created_at DESC"
+
+        cur.execute(sql, params)
         payments = cur.fetchall()
         cur.close()
-        
-        return render_template('payments.html', payments=payments)
+
+        return render_template('payments.html', payments=payments, is_admin=is_admin)
     except Exception as e:
         print(f"Payments error: {e}")
         flash('Error loading payments.', 'danger')
-        return render_template('payments.html', payments=[])
+        return render_template('payments.html', payments=[], is_admin=is_admin)
+
+# ============================================
+# ADMIN BID MODERATION
+# ============================================
+
+@app.route('/admin/bids')
+@login_required
+def admin_bids():
+    """Every bid on the platform, with the removal controls."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    status = request.args.get('status', 'all')
+
+    try:
+        cur = mysql.connection.cursor()
+        sql = """
+            SELECT b.*, u.username, u.first_name, u.last_name, u.email,
+                   a.title as auction_title, a.status as auction_status,
+                   r.first_name as removed_by_first_name, r.last_name as removed_by_last_name
+            FROM bids b
+            JOIN users u ON b.bidder_id = u.user_id
+            JOIN auctions a ON b.auction_id = a.auction_id
+            LEFT JOIN users r ON b.removed_by = r.user_id
+        """
+        params = ()
+        if status in ('accepted', 'removed'):
+            sql += " WHERE b.status = %s"
+            params = (status,)
+        sql += " ORDER BY b.bid_time DESC LIMIT 300"
+
+        cur.execute(sql, params)
+        bids = cur.fetchall()
+
+        cur.execute("""
+            SELECT
+                COUNT(*) as total,
+                SUM(status = 'accepted') as accepted,
+                SUM(status = 'removed') as removed
+            FROM bids
+        """)
+        totals = cur.fetchone()
+        cur.close()
+
+        return render_template('admin_bids.html', bids=bids, totals=totals, status=status)
+    except Exception as e:
+        print(f"Admin bids error: {e}")
+        flash('Error loading bids.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/remove_bid/<int:bid_id>', methods=['POST'])
+@login_required
+def admin_remove_bid(bid_id):
+    """Remove a bid, recording a reason the bidder will see."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash('A reason is required so the bidder knows why the bid was removed.', 'danger')
+        return redirect(request.referrer or url_for('admin_bids'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT auction_id, status FROM bids WHERE bid_id = %s", (bid_id,))
+        bid = cur.fetchone()
+
+        if not bid:
+            cur.close()
+            flash('Bid not found.', 'warning')
+            return redirect(request.referrer or url_for('admin_bids'))
+
+        if bid['status'] == 'removed':
+            cur.close()
+            flash('That bid has already been removed.', 'info')
+            return redirect(request.referrer or url_for('admin_bids'))
+
+        cur.execute("""
+            UPDATE bids
+            SET status = 'removed', removed_reason = %s, removed_at = NOW(), removed_by = %s
+            WHERE bid_id = %s
+        """, (reason, current_user.id, bid_id))
+
+        recalculate_auction(cur, bid['auction_id'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Bid removed. The bidder can see your reason on their dashboard.', 'success')
+    except Exception as e:
+        print(f"Remove bid error: {e}")
+        flash('Error removing the bid.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_bids'))
+
+@app.route('/admin/restore_bid/<int:bid_id>', methods=['POST'])
+@login_required
+def admin_restore_bid(bid_id):
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT auction_id FROM bids WHERE bid_id = %s AND status = 'removed'", (bid_id,))
+        bid = cur.fetchone()
+
+        if not bid:
+            cur.close()
+            flash('Bid not found or not removed.', 'warning')
+            return redirect(request.referrer or url_for('admin_bids'))
+
+        cur.execute("""
+            UPDATE bids
+            SET status = 'accepted', removed_reason = NULL, removed_at = NULL, removed_by = NULL
+            WHERE bid_id = %s
+        """, (bid_id,))
+
+        recalculate_auction(cur, bid['auction_id'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Bid reinstated.', 'success')
+    except Exception as e:
+        print(f"Restore bid error: {e}")
+        flash('Error reinstating the bid.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_bids'))
+
+# ============================================
+# ADMIN PAYMENT CONTROL
+# ============================================
+
+@app.route('/admin/raise_invoice/<int:auction_id>', methods=['POST'])
+@login_required
+def admin_raise_invoice(auction_id):
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            SELECT auction_id, seller_id, winner_id, current_price, status
+            FROM auctions WHERE auction_id = %s
+        """, (auction_id,))
+        auction = cur.fetchone()
+
+        if not auction or not auction['winner_id']:
+            cur.close()
+            flash('That lot has no winning bidder yet.', 'warning')
+            return redirect(url_for('admin_dashboard'))
+
+        created = create_invoice(cur, auction['auction_id'], auction['winner_id'],
+                                 auction['seller_id'], auction['current_price'])
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Invoice raised for the winning bidder.' if created
+              else 'That lot already has an invoice.', 'success' if created else 'info')
+    except Exception as e:
+        print(f"Raise invoice error: {e}")
+        flash('Error raising the invoice.', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/settle_payment/<int:payment_id>', methods=['POST'])
+@login_required
+def admin_settle_payment(payment_id):
+    """Admin records a payment on a bidder's behalf."""
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    payment_method = request.form.get('payment_method', 'bank_transfer')
+    shipping_address = request.form.get('shipping_address', '').strip()
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            UPDATE payments
+            SET payment_method = %s,
+                shipping_address = COALESCE(NULLIF(%s, ''), shipping_address),
+                payment_status = 'completed',
+                payment_date = NOW(),
+                transaction_id = CONCAT('ADM', UNIX_TIMESTAMP(NOW()), FLOOR(RAND()*1000))
+            WHERE payment_id = %s AND payment_status = 'pending'
+        """, (payment_method, shipping_address, payment_id))
+
+        if cur.rowcount > 0:
+            mysql.connection.commit()
+            flash('Payment recorded for the bidder.', 'success')
+        else:
+            flash('Payment not found or already settled.', 'warning')
+        cur.close()
+    except Exception as e:
+        print(f"Admin settle payment error: {e}")
+        flash('Error recording the payment.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_dashboard'))
+
+@app.route('/admin/reopen_payment/<int:payment_id>', methods=['POST'])
+@login_required
+def admin_reopen_payment(payment_id):
+    if current_user.user_type != 'admin':
+        flash('Access denied. Admin only.', 'danger')
+        return redirect(url_for('index'))
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            UPDATE payments
+            SET payment_status = 'pending', payment_date = NULL, transaction_id = NULL
+            WHERE payment_id = %s AND payment_status = 'completed'
+        """, (payment_id,))
+
+        if cur.rowcount > 0:
+            mysql.connection.commit()
+            flash('Payment reopened as pending.', 'success')
+        else:
+            flash('Payment not found or already pending.', 'warning')
+        cur.close()
+    except Exception as e:
+        print(f"Admin reopen payment error: {e}")
+        flash('Error reopening the payment.', 'danger')
+
+    return redirect(request.referrer or url_for('admin_dashboard'))
 
 @app.route('/process_payment/<int:payment_id>', methods=['POST'])
 @login_required
@@ -815,31 +1271,51 @@ def profile():
         first_name = request.form.get('first_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
         phone = request.form.get('phone', '').strip()
-        
+
         if not first_name or not last_name:
             flash('First name and last name are required.', 'danger')
             return redirect(url_for('profile'))
-        
+
         try:
             cur = mysql.connection.cursor()
+
+            # Handle avatar upload if provided
+            profile_image = current_user.profile_image
+            if 'profile_image' in request.files:
+                file = request.files['profile_image']
+                if file and file.filename and allowed_file(file.filename):
+                    # Remove old avatar if it exists
+                    if current_user.profile_image:
+                        old_path = os.path.join(app.config['UPLOAD_FOLDER'],
+                                                current_user.profile_image)
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+
+                    ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+                    filename = f"avatar_{current_user.id}_{int(datetime.now().timestamp())}.{ext}"
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    profile_image = filename
+
             cur.execute("""
-                UPDATE users 
-                SET first_name = %s, last_name = %s, phone = %s
+                UPDATE users
+                SET first_name = %s, last_name = %s, phone = %s, profile_image = %s
                 WHERE user_id = %s
-            """, (first_name, last_name, phone, current_user.id))
+            """, (first_name, last_name, phone, profile_image, current_user.id))
             mysql.connection.commit()
             cur.close()
-            
+
             current_user.first_name = first_name
             current_user.last_name = last_name
             current_user.phone = phone
-            
+            current_user.profile_image = profile_image
+
             flash('Profile updated successfully!', 'success')
             return redirect(url_for('profile'))
         except Exception as e:
             print(f"Profile update error: {e}")
             flash('Error updating profile.', 'danger')
-    
+
     try:
         cur = mysql.connection.cursor()
         cur.execute("SELECT * FROM users WHERE user_id = %s", (current_user.id,))

@@ -63,11 +63,11 @@
             {% endif %}
 
             <!-- Catalogue note -->
-            <section class="mt-5 reveal">
+            <section class="panel p-4 mt-4 reveal">
                 <div class="fieldset-title"><span>Catalogue note</span></div>
                 <p style="white-space:pre-line;color:var(--ink-80)">{{ auction.description or 'No description provided for this lot.' }}</p>
 
-                <div class="spec-list mt-4">
+                <div class="spec-list mt-3">
                     <div class="row-item">
                         <span class="k">Opening bid</span>
                         <span class="v">${{ "{:,.2f}".format(auction.starting_price) }}</span>
@@ -92,13 +92,12 @@
             </section>
 
             <!-- Bid history -->
-            <section class="mt-5 reveal">
-                <div class="section-head">
-                    <div class="head-text">
-                        <span class="overline">Bidding history</span>
-                        <h2 class="title-md mb-0">{{ bids|length }} bid{{ '' if bids|length == 1 else 's' }}</h2>
+            <section class="panel mt-4 reveal">
+                <div class="panel-head">
+                    <h2 class="title-md mb-0">Bidding history</h2>
+                    <div class="head-action">
+                        <span class="mark-box is-closed">{{ bids|length }} bid{{ '' if bids|length == 1 else 's' }}</span>
                     </div>
-                    <div class="head-rule"></div>
                 </div>
 
                 {% if bids %}
@@ -148,9 +147,9 @@
                 <div class="mb-4">{{ mark(auction.status) }}</div>
 
                 <!-- Current bid -->
-                <div class="py-3" style="border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)">
+                <div class="p-3" style="background:var(--surface-2);border-radius:var(--r-md)">
                     <span class="overline">{{ 'Current bid' if auction.total_bids else 'Opening bid' }}</span>
-                    <div class="d-flex align-items-end justify-content-between gap-3 mt-2">
+                    <div class="d-flex align-items-end justify-content-between gap-3 mt-1">
                         <span class="bid-figure">${{ "{:,.0f}".format(auction.current_price) }}</span>
                         <span class="small-print num">
                             {{ auction.total_bids or 0 }} bid{{ '' if auction.total_bids == 1 else 's' }}
@@ -245,9 +244,9 @@
                 {% endif %}
 
                 <!-- Conditions -->
-                <div class="mt-5">
+                <div class="mt-4">
                     <div class="fieldset-title"><span>Conditions</span></div>
-                    <div class="spec-list" style="border-top:0">
+                    <div class="spec-list">
                         <div class="row-item">
                             <span class="k">Bids</span>
                             <span class="v" style="font-size:.8125rem">Binding and time-stamped</span>

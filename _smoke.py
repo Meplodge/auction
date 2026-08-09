@@ -2,11 +2,12 @@
 import urllib.request, urllib.parse, urllib.error, http.cookiejar
 
 BASE = 'http://127.0.0.1:5000'
-PUBLIC = ['/', '/search', '/search?q=watch', '/search?category=Jewelry&status=all',
+PUBLIC = ['/', '/fixed', '/search', '/search?q=watch', '/search?category=Jewelry&status=all',
           '/search?status=closed', '/auction/1', '/auction/4', '/auction/7',
           '/login', '/register', '/nope']
 BY_ROLE = {
-    'admin@auction.com': ['/dashboard', '/admin/dashboard', '/profile', '/create_auction'],
+    'admin@auction.com': ['/dashboard', '/admin/dashboard', '/admin/bids',
+                          '/admin/bids?status=removed', '/payments', '/profile', '/create_auction'],
     'john@email.com':    ['/dashboard', '/seller/dashboard', '/profile', '/create_auction'],
     'jane@email.com':    ['/dashboard', '/buyer/dashboard', '/profile', '/payments'],
 }

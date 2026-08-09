@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import lot_card, blank %}
 
-{% block title %}Lots — Auction House{% endblock %}
+{% block title %}Lots — BidHouse{% endblock %}
 
 {% block content %}
 {% set sel_category = request.args.get('category', '') %}
@@ -28,13 +28,15 @@
             </div>
             <div class="col-md-4 text-md-end">
                 {% if filtered %}
-                <a href="{{ url_for('search') }}" class="link-underline overline overline-ink">Clear all filters</a>
+                <a href="{{ url_for('search') }}" class="btn btn-outline btn-sm">
+                    <i class="fas fa-xmark"></i> Clear filters
+                </a>
                 {% endif %}
             </div>
         </div>
     </header>
 
-    <div class="rail mb-5">
+    <div class="rail mb-4">
         <a href="{{ url_for('search', q=query, status=sel_status) }}" class="{{ 'is-on' if not sel_category }}">All</a>
         {% for cat in categories|default([]) %}
             <a href="{{ url_for('search', category=cat, q=query, status=sel_status) }}"
@@ -42,10 +44,10 @@
         {% endfor %}
     </div>
 
-    <div class="row g-4 g-lg-5">
+    <div class="row g-4">
         <!-- Refine -->
         <aside class="col-lg-3">
-            <form method="GET" action="{{ url_for('search') }}" class="reveal" style="position:sticky;top:100px">
+            <form method="GET" action="{{ url_for('search') }}" class="panel p-4 reveal" style="position:sticky;top:96px">
                 <div class="fieldset-title"><span>Refine</span></div>
 
                 <div class="mb-4">
@@ -94,9 +96,9 @@
         <!-- Results -->
         <div class="col-lg-9">
             {% if auctions %}
-            <div class="row g-4 g-lg-0 lot-grid-3">
+            <div class="row g-3 g-lg-4 lot-grid-3">
                 {% for auction in auctions %}
-                <div class="col-6 col-xl-4 px-lg-4 mb-lg-5">
+                <div class="col-6 col-xl-4">
                     {{ lot_card(auction, delay=loop.index0 * 45) }}
                 </div>
                 {% endfor %}

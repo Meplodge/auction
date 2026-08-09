@@ -33,7 +33,7 @@
                 if (isNaN(end)) { el.textContent = '--'; return; }
 
                 const distance = end - now;
-                const box = el.closest('.countdown-box');
+                const box = el.closest('.countdown-box, .timer');
 
                 if (distance <= 0) {
                     el.textContent = 'Auction closed';
@@ -399,6 +399,104 @@
     }
 
     /* --------------------------------------------------------
+       Dashboard area charts
+       Any <canvas data-area-chart> with data-labels / data-values.
+       -------------------------------------------------------- */
+    function initAreaCharts() {
+        const canvases = document.querySelectorAll('canvas[data-area-chart]');
+        if (!canvases.length || typeof Chart === 'undefined') return;
+
+        const brand = '#10794f';
+        const brandLine = '#23a06c';
+
+        canvases.forEach(canvas => {
+            let labels = [];
+            let values = [];
+            try {
+                labels = JSON.parse(canvas.dataset.labels || '[]');
+                values = JSON.parse(canvas.dataset.values || '[]');
+            } catch (e) {
+                return;
+            }
+
+            const decimals = parseInt(canvas.dataset.decimals || '0', 10);
+            const prefix = canvas.dataset.prefix || '';
+            const format = v => prefix + Number(v).toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+
+            const ctx = canvas.getContext('2d');
+            const fill = ctx.createLinearGradient(0, 0, 0, canvas.parentElement.clientHeight || 220);
+            fill.addColorStop(0, 'rgba(35, 160, 108, .35)');
+            fill.addColorStop(1, 'rgba(35, 160, 108, 0)');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: canvas.dataset.label || 'Activity',
+                        data: values,
+                        borderColor: brand,
+                        borderWidth: 2,
+                        backgroundColor: fill,
+                        fill: true,
+                        tension: .38,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: brandLine,
+                        pointHoverBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: prefersReducedMotion ? false : { duration: 800 },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f1418',
+                            padding: 10,
+                            cornerRadius: 10,
+                            displayColors: false,
+                            titleFont: { family: 'Inter', size: 12 },
+                            bodyFont: { family: 'Inter', size: 13, weight: '600' },
+                            callbacks: { label: c => format(c.parsed.y) }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: {
+                                color: '#8b95a3',
+                                font: { family: 'Inter', size: 11 },
+                                maxRotation: 0,
+                                autoSkipPadding: 12
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e6e9ee', drawTicks: false },
+                            border: { display: false },
+                            ticks: {
+                                color: '#8b95a3',
+                                font: { family: 'Inter', size: 11 },
+                                padding: 8,
+                                maxTicksLimit: 5,
+                                callback: v => format(v)
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    /* --------------------------------------------------------
        Mark the active nav link based on current path
        -------------------------------------------------------- */
     function initActiveNav() {
@@ -419,18 +517,18 @@
        Boot
        -------------------------------------------------------- */
     document.addEventListener('DOMContentLoaded', function () {
-        initCountdowns();
-        initButtonEffects();
-        initToasts();
-        initNavToggle();
-        initScrollEffects();
-        initReveal();
-        initCounters();
-        initUploads();
-        initPasswords();
-        initForms();
-        initBidding();
-        initActiveNav();
+        // Reveal first, and independently, so a later failure can never leave
+        // the page blank (and therefore apparently unscrollable).
+        try { initReveal(); } catch (e) {
+            document.querySelectorAll('.reveal').forEach(el => el.classList.add('is-visible'));
+            console.error(e);
+        }
+
+        [initCountdowns, initButtonEffects, initToasts, initNavToggle, initScrollEffects,
+         initCounters, initUploads, initPasswords, initForms, initBidding,
+         initAreaCharts, initActiveNav].forEach(fn => {
+            try { fn(); } catch (e) { console.error(e); }
+        });
     });
 
     // Exposed helper

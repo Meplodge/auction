@@ -26,7 +26,7 @@
         {% endif %}
 
         {% if auction.status == 'active' %}
-            <span class="lot-tag is-live">Live</span>
+            <span class="lot-tag is-live">Live now</span>
         {% elif auction.status == 'closed' %}
             <span class="lot-tag is-closed">Closed</span>
         {% else %}
@@ -79,9 +79,38 @@
 {% endmacro %}
 
 
+{# Area chart panel. `series` is a dict of {labels, values} from daily_series(). #}
+{% macro area_chart(id, title, series, subtitle='', prefix='', decimals=0) %}
+<div class="panel chart-panel reveal">
+    <div class="panel-head">
+        <div>
+            <h3 class="title-md mb-0">{{ title }}</h3>
+            {% if subtitle %}<span class="overline">{{ subtitle }}</span>{% endif %}
+        </div>
+        <div class="head-action">
+            <span class="mark-box is-live">
+                {{ prefix }}{{ "{:,.{p}f}".format(series['values']|sum, p=decimals) }} total
+            </span>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="chart-canvas">
+            <canvas id="{{ id }}"
+                    data-area-chart
+                    data-labels='{{ series["labels"]|tojson }}'
+                    data-values='{{ series["values"]|tojson }}'
+                    data-prefix="{{ prefix }}"
+                    data-decimals="{{ decimals }}"
+                    data-label="{{ title }}"></canvas>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+
 {# Statistic cell for dashboards #}
-{% macro figure_cell(label, value, trail='', prefix='', decimals=0) %}
-<div class="figure-cell">
+{% macro figure_cell(label, value, trail='', prefix='', decimals=0, variant='') %}
+<div class="figure-cell {{ variant }}">
     <span class="overline">{{ label }}</span>
     <div class="value" data-count="{{ value or 0 }}" data-count-prefix="{{ prefix }}" data-count-decimals="{{ decimals }}">
         {{ prefix }}0

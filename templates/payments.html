@@ -1,50 +1,51 @@
-{% extends "base.html" %}
+{% extends "dash_base.html" %}
 {% from "_macros.html" import figure_cell, blank %}
 
-{% block title %}Invoices — Auction House{% endblock %}
+{% block title %}Invoices — BidHouse{% endblock %}
 
-{% block content %}
+{% block dash %}
 {% set pending = payments|selectattr('payment_status', 'equalto', 'pending')|list %}
 {% set settled = payments|selectattr('payment_status', 'equalto', 'completed')|list %}
 
-<div class="container">
-
-    <header class="masthead">
+    <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <span class="overline overline-accent mb-2">Buyer account</span>
                 <h1>Invoices</h1>
-                <p class="lede">Settle for the lots you have won and review past purchases.</p>
+                <p class="lede">
+                    {% if is_admin %}Every invoice on the platform. You can record or reverse any bidder's payment.
+                    {% else %}Settle for the lots you have won and review past purchases.{% endif %}
+                </p>
             </div>
             <div class="col-md-4 text-md-end">
-                <a href="{{ url_for('buyer_dashboard') }}" class="overline overline-ink link-underline">Back to account</a>
+                <a href="{{ url_for('admin_dashboard') if is_admin else url_for('buyer_dashboard') }}"
+                   class="btn btn-outline btn-sm">Back to dashboard</a>
             </div>
         </div>
     </header>
 
     <section class="figures-row reveal">
-        {{ figure_cell('Awaiting payment', pending|length) }}
-        {{ figure_cell('Settled', settled|length) }}
-        {{ figure_cell('Total paid', settled|sum(attribute='amount') or 0, prefix='$', decimals=2) }}
+        {{ figure_cell('Total paid', settled|sum(attribute='amount') or 0, prefix='$', decimals=2,
+                       trail='Settled invoices', variant='is-brand') }}
+        {{ figure_cell('Awaiting payment', pending|length, trail='Action needed') }}
+        {{ figure_cell('Settled', settled|length, trail='Completed') }}
     </section>
 
-    <section class="mt-5 pb-3">
-        <div class="section-head reveal">
-            <div class="head-text">
-                <span class="overline">Statement</span>
-                <h2 class="title-md mb-0">
-                    {{ payments|length }} invoice{{ '' if payments|length == 1 else 's' }}
-                </h2>
+    <section class="mt-4 pb-3">
+        <div class="panel reveal">
+        <div class="panel-head">
+            <h2 class="title-md mb-0">Statement</h2>
+            <div class="head-action">
+                <span class="mark-box is-closed">{{ payments|length }} invoice{{ '' if payments|length == 1 else 's' }}</span>
             </div>
-            <div class="head-rule"></div>
         </div>
 
         {% if payments %}
-        <div class="table-responsive reveal">
+        <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
                     <tr>
                         <th>Lot</th>
+                        {% if is_admin %}<th>Bidder</th>{% endif %}
                         <th>Consigned by</th>
                         <th class="text-end">Amount</th>
                         <th>Status</th>
@@ -57,6 +58,9 @@
                     {% for payment in payments %}
                     <tr>
                         <td class="t-strong">{{ payment.auction_title }}</td>
+                        {% if is_admin %}
+                        <td class="t-quiet">{{ payment.buyer_first_name }} {{ payment.buyer_last_name }}</td>
+                        {% endif %}
                         <td class="t-quiet">{{ payment.seller_first_name }} {{ payment.seller_last_name }}</td>
                         <td class="text-end t-figure">${{ "{:,.2f}".format(payment.amount) }}</td>
                         <td>
@@ -71,7 +75,13 @@
                         <td class="text-end">
                             {% if payment.payment_status == 'pending' %}
                             <button type="button" class="btn btn-accent btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#pay{{ payment.payment_id }}">Pay</button>
+                                    data-bs-target="#pay{{ payment.payment_id }}">
+                                {{ 'Record' if is_admin else 'Pay' }}
+                            </button>
+                            {% elif is_admin %}
+                            <form method="POST" action="{{ url_for('admin_reopen_payment', payment_id=payment.payment_id) }}">
+                                <button type="submit" class="btn btn-quiet btn-sm">Reopen</button>
+                            </form>
                             {% else %}
                             <span class="t-quiet"><i class="fas fa-check" style="font-size:.75rem"></i></span>
                             {% endif %}
@@ -86,8 +96,8 @@
                      'When you win a lot, its invoice appears here ready to settle.',
                      url_for('search'), 'Browse lots') }}
         {% endif %}
+        </div>
     </section>
-</div>
 
 <!-- Payment dialogs -->
 {% for payment in payments %}
@@ -99,10 +109,16 @@
                     <h5 class="modal-title">Settle invoice</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('process_payment', payment_id=payment.payment_id) }}">
+                <form method="POST" action="{{ url_for('admin_settle_payment', payment_id=payment.payment_id)
+                                              if is_admin else
+                                              url_for('process_payment', payment_id=payment.payment_id) }}">
                     <div class="modal-body">
                         <span class="overline">{{ payment.auction_title }}</span>
-                        <div class="bid-figure mt-2 mb-4">${{ "{:,.2f}".format(payment.amount) }}</div>
+                        <div class="bid-figure mt-2">${{ "{:,.2f}".format(payment.amount) }}</div>
+                        <p class="small-print mt-2 mb-4">
+                            {% if is_admin %}On behalf of {{ payment.buyer_first_name }} {{ payment.buyer_last_name }}.
+                            {% else %}Payable to {{ payment.seller_first_name }} {{ payment.seller_last_name }}.{% endif %}
+                        </p>
 
                         <div class="mb-4">
                             <label for="method{{ payment.payment_id }}" class="form-label">Payment method</label>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import lot_card, blank, mark %}
 
-{% block title %}Auction House — Live lots{% endblock %}
+{% block title %}BidHouse — Live lots{% endblock %}
 
 {% block content %}
 {% set live = auctions|selectattr('status', 'equalto', 'active')|list %}
@@ -10,27 +10,48 @@
 
 <div class="container">
 
-    <!-- Opening statement -->
-    <section class="pt-5 pb-4 reveal">
-        <div class="row align-items-end g-4">
-            <div class="col-lg-7">
-                <span class="overline overline-accent mb-3">Now open for bidding</span>
-                <h1 class="display mb-0">
-                    Objects worth<br>bidding&nbsp;on.
-                </h1>
-            </div>
-            <div class="col-lg-5">
-                <p class="lede mb-0">
-                    A timed marketplace for collectors, dealers and everyday sellers.
-                    Browse the current sale, place a bid, and follow it to the close.
-                </p>
-                <div class="d-flex flex-wrap gap-3 mt-4">
+    <!-- Hero -->
+    <section class="hero mt-4 reveal">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7 text-center">
+                <span class="hero-pill mb-3"><i class="fas fa-circle" style="font-size:.4rem"></i> {{ live|length }} lots open for bidding</span>
+                {% if current_user.is_authenticated %}
+                    <h1 class="display mb-3">Welcome back, {{ current_user.first_name }} — ready to bid?</h1>
+                    <p class="lede mb-4" style="max-width:52ch; margin:0 auto 1.5rem;">
+                        Objects worth bidding on. Jump back in to the current sale, watch saved lots, and track your bids.
+                    </p>
+                {% else %}
+                    <h1 class="display mb-3">Objects worth bidding on.</h1>
+                    <p class="lede mb-4" style="max-width:52ch; margin:0 auto 1.5rem;">
+                        A timed marketplace for collectors, dealers and everyday sellers.
+                        Browse the current sale, place a bid, and follow it to the close.
+                    </p>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
                     <a href="{{ url_for('search') }}" class="btn btn-primary">View all lots</a>
                     {% if not current_user.is_authenticated %}
                         <a href="{{ url_for('register') }}" class="btn btn-outline">Open an account</a>
                     {% elif current_user.user_type in ['seller', 'admin'] %}
                         <a href="{{ url_for('create_auction') }}" class="btn btn-outline">Consign an item</a>
+                    {% else %}
+                        <a href="{{ url_for('buyer_dashboard') }}" class="btn btn-outline">Your dashboard</a>
                     {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="hero-stats" style="margin-top:0;border-top:0">
+                    <div>
+                        <span class="overline">Lots in this sale</span>
+                        <span class="value">{{ auctions|length }}</span>
+                    </div>
+                    <div>
+                        <span class="overline">Departments</span>
+                        <span class="value">{{ categories|length }}</span>
+                    </div>
+                    <div>
+                        <span class="overline">Bids placed</span>
+                        <span class="value">{{ auctions|sum(attribute='total_bids') or 0 }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -38,9 +59,9 @@
 
     <!-- Featured lot -->
     {% if featured %}
-    <section class="feature reveal">
+    <section class="feature reveal mt-4">
         <div class="feature-copy">
-            <span class="overline">Featured &mdash; Lot {{ '%03d'|format(featured.auction_id) }}</span>
+            <div><span class="mark-box is-live">Featured &mdash; Lot {{ '%03d'|format(featured.auction_id) }}</span></div>
             <h2>{{ featured.title }}</h2>
 
             <p class="lede" style="max-width:46ch">
@@ -85,7 +106,7 @@
 
     <!-- Categories -->
     {% if categories %}
-    <section class="mt-5 reveal">
+    <section class="mt-4 reveal">
         <div class="rail">
             <a href="{{ url_for('search') }}" class="is-on">All departments</a>
             {% for category in categories %}
@@ -96,22 +117,21 @@
     {% endif %}
 
     <!-- Current sale -->
-    <section class="mt-5 pt-3">
+    <section class="mt-5">
         <div class="section-head reveal">
             <div class="head-text">
                 <span class="overline">The current sale</span>
                 <h2 class="display-sm mb-0">{{ auctions|length }} lots</h2>
             </div>
-            <div class="head-rule"></div>
             <div class="head-action">
-                <a href="{{ url_for('search') }}" class="link-underline overline overline-ink">Browse all</a>
+                <a href="{{ url_for('search') }}" class="btn btn-outline btn-sm">Browse all</a>
             </div>
         </div>
 
         {% if rest %}
-        <div class="row g-4 g-lg-0 lot-grid">
+        <div class="row g-3 g-lg-4 lot-grid">
             {% for auction in rest %}
-            <div class="col-6 col-lg-4 col-xl-3 px-lg-4 mb-lg-5">
+            <div class="col-6 col-lg-4 col-xl-3">
                 {{ lot_card(auction, delay=loop.index0 * 55) }}
             </div>
             {% endfor %}
@@ -129,14 +149,14 @@
         <div class="row g-5">
             <div class="col-lg-4">
                 <span class="overline overline-accent">How bidding works</span>
-                <h2 class="display-sm mt-3">Four steps,<br>no small print.</h2>
+                <h2 class="display-sm mt-2">Four steps,<br>no small print.</h2>
                 <p class="lede">
                     Every lot runs to a published closing time. The highest bid on the clock takes it.
                 </p>
             </div>
 
             <div class="col-lg-8">
-                <div class="stack-lines">
+                <div class="panel stack-lines px-3">
                     {% set steps = [
                         ('01', 'Register', 'Open a buyer account to bid, or a seller account to consign your own items. It takes a minute.'),
                         ('02', 'Browse the sale', 'Filter by department, price or closing time. Save the lots you want to follow.'),

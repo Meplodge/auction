@@ -1,26 +1,29 @@
-{% extends "base.html" %}
+{% extends "dash_base.html" %}
 
-{% block title %}Profile — Auction House{% endblock %}
+{% block title %}Profile — BidHouse{% endblock %}
 
-{% block content %}
-<div class="container">
-
-    <header class="masthead">
-        <span class="overline overline-accent mb-2">Your account</span>
+{% block dash %}
+    <header class="masthead pt-0">
         <h1>Profile</h1>
         <p class="lede">Your details as they appear on bids, consignments and invoices.</p>
     </header>
 
-    <div class="row g-5">
+    <div class="row g-4">
         <!-- Identity -->
-        <div class="col-lg-4">
-            <div class="reveal">
-                <span class="initials initials-lg mb-4">{{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}</span>
+        <div class="col-lg-5">
+            <div class="panel p-4 reveal text-center text-lg-start">
+                {% if user.profile_image %}
+                    <img class="avatar avatar-lg mx-auto mx-lg-0 mb-3"
+                         src="{{ url_for('static', filename='uploads/' + user.profile_image) }}"
+                         alt="{{ user.first_name }} {{ user.last_name }}">
+                {% else %}
+                    <span class="initials initials-lg mb-3">{{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}</span>
+                {% endif %}
 
-                <h2 class="display-sm mb-1">{{ user.first_name }}<br>{{ user.last_name }}</h2>
-                <span class="overline mb-4">{{ user.user_type }} account &mdash; @{{ user.username }}</span>
+                <h2 class="display-sm mb-1">{{ user.first_name }} {{ user.last_name }}</h2>
+                <span class="mark-box is-live mb-3">{{ user.user_type }} &mdash; @{{ user.username }}</span>
 
-                <div class="spec-list mt-4">
+                <div class="spec-list mt-3">
                     <div class="row-item">
                         <span class="k">Email</span>
                         <span class="v" style="font-size:.8125rem;word-break:break-all">{{ user.email }}</span>
@@ -40,11 +43,18 @@
         </div>
 
         <!-- Edit -->
-        <div class="col-lg-7 offset-lg-1">
-            <section class="reveal">
+        <div class="col-lg-7">
+            <section class="panel p-4 reveal">
                 <div class="fieldset-title"><span class="n">01</span><span>Edit details</span></div>
 
-                <form method="POST" class="needs-validation" novalidate>
+                <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+                    <div class="mb-4">
+                        <label for="profile_image" class="form-label">Profile photo</label>
+                        <input type="file" class="form-control" id="profile_image" name="profile_image"
+                               accept="image/png, image/jpeg, image/jpg, image/gif, image/webp">
+                        <div class="form-text">Upload a square image for the best results. PNG, JPG, GIF or WebP up to 16 MB.</div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6 mb-4">
                             <label for="first_name" class="form-label">First name</label>
@@ -70,10 +80,10 @@
                 </form>
             </section>
 
-            <section class="mt-5 reveal">
+            <section class="panel p-4 mt-4 reveal">
                 <div class="fieldset-title"><span class="n">02</span><span>Shortcuts</span></div>
 
-                <div class="stack-lines" style="border-top:1px solid var(--rule)">
+                <div class="stack-lines">
                     {% if current_user.user_type in ['seller', 'admin'] %}
                     <a href="{{ url_for('create_auction') }}" class="d-flex justify-content-between align-items-center py-3">
                         <span class="t-strong">Consign an item</span>
@@ -98,5 +108,4 @@
             </section>
         </div>
     </div>
-</div>
 {% endblock %}

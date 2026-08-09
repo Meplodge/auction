@@ -1,19 +1,17 @@
-{% extends "base.html" %}
-{% from "_macros.html" import figure_cell, mark, blank %}
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, mark, blank, area_chart %}
 
-{% block title %}Your account — Auction House{% endblock %}
+{% block title %}Your account — BidHouse{% endblock %}
 
-{% block content %}
+{% block dash %}
 {% set leading = my_bids|selectattr('auction_status', 'equalto', 'active')|selectattr('highest_bid')|list %}
+{% set removed = my_bids|selectattr('status', 'equalto', 'removed')|list %}
 
-<div class="container">
-
-    <header class="masthead">
+    <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <span class="overline overline-accent mb-2">Buyer account</span>
-                <h1>Your bidding</h1>
-                <p class="lede">{{ current_user.first_name }}, here are your bids, saved lots and won items.</p>
+                <h1>Overview</h1>
+                <p class="lede">{{ current_user.first_name }}, here is a summary of your bids, saved lots and wins.</p>
             </div>
             <div class="col-md-4 text-md-end">
                 <a href="{{ url_for('search') }}" class="btn btn-primary btn-sm">Browse lots</a>
@@ -21,26 +19,63 @@
         </div>
     </header>
 
+    {% if removed %}
+    <div class="panel p-4 mb-4 reveal" style="border-left:4px solid var(--danger)">
+        <h2 class="title-md mb-2">
+            {{ removed|length }} of your bid{{ '' if removed|length == 1 else 's' }} {{ 'was' if removed|length == 1 else 'were' }} removed by an administrator
+        </h2>
+        <div class="stack-lines">
+            {% for bid in removed %}
+            <div class="py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a href="{{ url_for('auction_details', auction_id=bid.auction_id) }}"
+                       class="t-strong link-underline">{{ bid.title }}</a>
+                    <span class="mark-box is-accent">${{ "{:,.2f}".format(bid.bid_amount) }} removed</span>
+                    <span class="small-print ms-auto">
+                        {{ bid.removed_at.strftime('%d %b %Y, %H:%M') if bid.removed_at else '' }}
+                    </span>
+                </div>
+                <p class="small-print mb-0 mt-1">
+                    <strong>Reason:</strong> {{ bid.removed_reason or 'No reason recorded.' }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <section class="figures-row reveal">
-        {{ figure_cell('Bids placed', my_bids|length) }}
-        {{ figure_cell('Lots saved', watchlist|length) }}
-        {{ figure_cell('Lots won', wins|length) }}
-        {{ figure_cell('Currently leading', leading|length) }}
+        {{ figure_cell('Bids placed', my_bids|rejectattr('status', 'equalto', 'removed')|list|length, trail='Across all lots') }}
+        {{ figure_cell('Lots saved', watchlist|length, trail='Following') }}
+        {{ figure_cell('Lots won', wins|length, trail='Ready to settle') }}
+        {{ figure_cell('Currently leading', leading|length, trail='Highest bidder') }}
     </section>
 
-    <div class="row g-5 mt-3">
+    <!-- Area graphs -->
+    <div class="row g-4 mt-4">
+        <div class="col-xl-7">
+            {{ area_chart('chartMyBids', 'Your bidding activity', bids_series,
+                          subtitle='Bids placed, last 14 days') }}
+        </div>
+        <div class="col-xl-5">
+            {{ area_chart('chartMySpend', 'Payments made', spend_series,
+                          subtitle='Settled invoices, last 14 days', prefix='$', decimals=2) }}
+        </div>
+    </div>
+
+    <div class="row g-4 mt-4">
         <!-- Bids -->
-        <div class="col-lg-7">
-            <div class="section-head reveal">
-                <div class="head-text">
-                    <span class="overline">Activity</span>
-                    <h2 class="title-md mb-0">Your bids</h2>
+        <div class="col-xl-7">
+            <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Your bids</h2>
+                <div class="head-action">
+                    <a href="{{ url_for('search') }}" class="link-underline" style="font-size:.8125rem">Find more</a>
                 </div>
-                <div class="head-rule"></div>
             </div>
 
             {% if my_bids %}
-            <div class="table-responsive reveal">
+            <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>
                         <tr>
@@ -53,6 +88,7 @@
                     <tbody>
                         {% for bid in my_bids %}
                         {% set ahead = bid.highest_bid and bid.bid_amount >= bid.highest_bid %}
+                        {% set is_removed = bid.status == 'removed' %}
                         <tr>
                             <td>
                                 <a href="{{ url_for('auction_details', auction_id=bid.auction_id) }}"
@@ -60,13 +96,20 @@
                                 <div class="small-print">
                                     {{ bid.bid_time.strftime('%d %b %Y, %H:%M') if bid.bid_time else '' }}
                                 </div>
+                                {% if is_removed and bid.removed_reason %}
+                                <div class="small-print" style="color:var(--danger)">
+                                    Removed: {{ bid.removed_reason }}
+                                </div>
+                                {% endif %}
                             </td>
                             <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
                             <td class="text-end t-quiet num">
                                 {{ '${:,.2f}'.format(bid.highest_bid) if bid.highest_bid else '—' }}
                             </td>
                             <td>
-                                {% if bid.auction_status != 'active' %}
+                                {% if is_removed %}
+                                    <span class="mark-box is-accent">Removed</span>
+                                {% elif bid.auction_status != 'active' %}
                                     <span class="mark-box is-closed">Closed</span>
                                 {% elif ahead %}
                                     <span class="mark-box is-live">Leading</span>
@@ -84,24 +127,23 @@
                          'Once you bid on a lot it will be tracked here until the sale closes.',
                          url_for('search'), 'Browse lots') }}
             {% endif %}
+            </div>
         </div>
 
         <!-- Saved -->
-        <div class="col-lg-5">
-            <div class="section-head reveal">
-                <div class="head-text">
-                    <span class="overline">Following</span>
-                    <h2 class="title-md mb-0">Saved lots</h2>
-                </div>
-                <div class="head-rule"></div>
+        <div class="col-xl-5">
+            <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Saved lots</h2>
+                <div class="head-action"><span class="mark-box is-closed">{{ watchlist|length }}</span></div>
             </div>
 
             {% if watchlist %}
-            <div class="stack-lines reveal" style="border-top:1px solid var(--ink)">
+            <div class="stack-lines px-3">
                 {% for item in watchlist %}
                 <a href="{{ url_for('auction_details', auction_id=item.auction_id) }}"
                    class="d-flex align-items-center gap-3 py-3">
-                    <span style="width:64px;height:64px;flex-shrink:0;overflow:hidden;background:var(--paper-2);display:grid;place-items:center;color:var(--ink-30)">
+                    <span style="width:56px;height:56px;flex-shrink:0;overflow:hidden;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;color:var(--ink-30)">
                         {% if item.primary_image %}
                             <img src="{{ url_for('static', filename='uploads/' + item.primary_image) }}"
                                  alt="{{ item.title }}" style="width:100%;height:100%;object-fit:cover">
@@ -127,26 +169,23 @@
                          'Save a lot from its page to follow it here.',
                          url_for('search'), 'Find lots') }}
             {% endif %}
+            </div>
         </div>
     </div>
 
-    <!-- Won -->
-    <section class="mt-5 pb-3">
-        <div class="section-head reveal">
-            <div class="head-text">
-                <span class="overline">Results</span>
-                <h2 class="title-md mb-0">Lots won</h2>
-            </div>
-            <div class="head-rule"></div>
+    <section class="mt-4 pb-3">
+        <div class="panel reveal">
+        <div class="panel-head">
+            <h2 class="title-md mb-0">Lots won</h2>
             {% if wins %}
             <div class="head-action">
-                <a href="{{ url_for('payments') }}" class="overline overline-ink link-underline">View invoices</a>
+                <a href="{{ url_for('payments') }}" class="link-underline" style="font-size:.8125rem">View invoices</a>
             </div>
             {% endif %}
         </div>
 
         {% if wins %}
-        <div class="table-responsive reveal">
+        <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
                     <tr>
@@ -179,6 +218,6 @@
             {{ blank('fa-award', 'No lots won yet',
                      'Keep bidding. Anything you win will be listed here with its invoice.') }}
         {% endif %}
+        </div>
     </section>
-</div>
 {% endblock %}

@@ -63,6 +63,17 @@ def create_default_admin(app):
     conn.close()
 
 
+def add_column_if_missing(cur, table, column, definition):
+    cur.execute("""
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+    """, (table, column))
+
+    if cur.fetchone()[0] == 0:
+        cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}")
+        print(f"Added column {table}.{column}")
+
+
 def initialize_database(app):
     create_database_if_not_exists(app)
 
@@ -118,7 +129,11 @@ def initialize_database(app):
             bidder_id INT NOT NULL,
             bid_amount DECIMAL(10,2) NOT NULL,
             bid_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_auto_bid BOOLEAN DEFAULT FALSE
+            is_auto_bid BOOLEAN DEFAULT FALSE,
+            status VARCHAR(20) DEFAULT 'accepted',
+            removed_reason TEXT,
+            removed_at DATETIME,
+            removed_by INT
         )
         """,
         """
@@ -148,6 +163,17 @@ def initialize_database(app):
 
     for statement in create_statements:
         cur.execute(statement)
+
+    # Migrations for databases created before bid moderation existed
+    for column, definition in [
+        ("status", "VARCHAR(20) DEFAULT 'accepted'"),
+        ("removed_reason", "TEXT"),
+        ("removed_at", "DATETIME"),
+        ("removed_by", "INT"),
+    ]:
+        add_column_if_missing(cur, "bids", column, definition)
+
+    cur.execute("UPDATE bids SET status = 'accepted' WHERE status IS NULL")
 
     conn.commit()
     cur.close()

@@ -1,16 +1,13 @@
-{% extends "base.html" %}
-{% from "_macros.html" import figure_cell, blank %}
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, blank, area_chart %}
 
-{% block title %}Administration — Auction House{% endblock %}
+{% block title %}Administration — BidHouse{% endblock %}
 
-{% block content %}
-<div class="container">
-
-    <header class="masthead">
+{% block dash %}
+    <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <span class="overline overline-accent mb-2">Administration</span>
-                <h1>House overview</h1>
+                <h1>Overview</h1>
                 <p class="lede">Registrations, consignments and bidding activity across the platform.</p>
             </div>
             <div class="col-md-4 text-md-end">
@@ -21,26 +18,203 @@
 
     <!-- Figures -->
     <section class="figures-row reveal">
-        {{ figure_cell('Registered users', stats.total_users) }}
-        {{ figure_cell('Lots consigned', stats.total_auctions) }}
-        {{ figure_cell('Open for bidding', stats.active_auctions) }}
-        {{ figure_cell('Bids received', stats.total_bids) }}
-        {{ figure_cell('Settled', stats.total_revenue, prefix='$', decimals=2) }}
+        {{ figure_cell('Settled revenue', stats.total_revenue, prefix='$', decimals=2,
+                       trail='Completed payments', variant='is-brand') }}
+        {{ figure_cell('Registered users', stats.total_users, trail='Buyers and sellers') }}
+        {{ figure_cell('Lots consigned', stats.total_auctions, trail='All time') }}
+        {{ figure_cell('Open for bidding', stats.active_auctions, trail='Live now') }}
+        {{ figure_cell('Bids received', stats.total_bids, trail='All time') }}
+    </section>
+
+    <!-- Area graphs -->
+    <div class="row g-4 mt-4">
+        <div class="col-xl-7">
+            {{ area_chart('chartBids', 'Bidding activity', bids_series,
+                          subtitle='Bids placed, last 14 days') }}
+        </div>
+        <div class="col-xl-5">
+            {{ area_chart('chartRevenue', 'Settled revenue', revenue_series,
+                          subtitle='Payments received, last 14 days', prefix='$', decimals=2) }}
+        </div>
+    </div>
+
+    <!-- Invoices to raise -->
+    <section class="mt-4">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Lots awaiting an invoice</h2>
+                <div class="head-action">
+                    <span class="mark-box {{ 'is-draft' if uninvoiced else 'is-closed' }}">{{ uninvoiced|length }}</span>
+                </div>
+            </div>
+
+            {% if uninvoiced %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:70px">Lot</th>
+                            <th>Title</th>
+                            <th>Winning bidder</th>
+                            <th class="text-end">Hammer price</th>
+                            <th class="text-end">Closed</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in uninvoiced %}
+                        <tr>
+                            <td><span class="rank">{{ '%03d'|format(lot.auction_id) }}</span></td>
+                            <td>
+                                <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}"
+                                   class="t-strong link-underline">{{ lot.title }}</a>
+                            </td>
+                            <td class="t-quiet">{{ lot.winner_first_name }} {{ lot.winner_last_name }}</td>
+                            <td class="text-end t-figure">${{ "{:,.2f}".format(lot.current_price) }}</td>
+                            <td class="text-end t-quiet">
+                                {{ lot.end_date.strftime('%d %b %Y') if lot.end_date else '—' }}
+                            </td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('admin_raise_invoice', auction_id=lot.auction_id) }}">
+                                    <button type="submit" class="btn btn-primary btn-sm">Raise invoice</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-file-circle-check', 'Every won lot is invoiced',
+                         'Closed lots are invoiced to the winning bidder automatically.') }}
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Payments -->
+    <section class="mt-4">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Payments</h2>
+                <div class="head-action">
+                    <a href="{{ url_for('payments') }}" class="link-underline" style="font-size:.8125rem">All invoices</a>
+                </div>
+            </div>
+
+            {% if all_payments %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Lot</th>
+                            <th>Bidder</th>
+                            <th class="text-end">Amount</th>
+                            <th>Status</th>
+                            <th>Method</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in all_payments %}
+                        <tr>
+                            <td class="t-strong text-truncate" style="max-width:200px">{{ payment.auction_title }}</td>
+                            <td class="t-quiet">{{ payment.buyer_first_name }} {{ payment.buyer_last_name }}</td>
+                            <td class="text-end t-figure">${{ "{:,.2f}".format(payment.amount) }}</td>
+                            <td>
+                                <span class="mark-box {{ 'is-live' if payment.payment_status == 'completed' else 'is-draft' }}">
+                                    {{ 'Settled' if payment.payment_status == 'completed' else payment.payment_status }}
+                                </span>
+                            </td>
+                            <td class="t-quiet">{{ (payment.payment_method or '—')|replace('_', ' ')|title }}</td>
+                            <td class="text-end">
+                                {% if payment.payment_status == 'pending' %}
+                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#adminPay{{ payment.payment_id }}">Record payment</button>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin_reopen_payment', payment_id=payment.payment_id) }}">
+                                    <button type="submit" class="btn btn-quiet btn-sm">Reopen</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-file-invoice', 'No payments yet',
+                         'Invoices appear here as soon as a lot closes with a winning bid.') }}
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Bidders -->
+    <section class="mt-4">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">All bidders</h2>
+                <div class="head-action"><span class="mark-box is-closed">{{ bidders|length }}</span></div>
+            </div>
+
+            {% if bidders %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Bidder</th>
+                            <th>Email</th>
+                            <th class="text-end">Bids</th>
+                            <th class="text-end">Highest bid</th>
+                            <th class="text-end">Lots won</th>
+                            <th class="text-end">Removed bids</th>
+                            <th>Outstanding</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bidder in bidders %}
+                        <tr>
+                            <td>
+                                <span class="t-strong">{{ bidder.first_name }} {{ bidder.last_name }}</span>
+                                <div class="small-print">@{{ bidder.username }}</div>
+                            </td>
+                            <td class="t-quiet">{{ bidder.email }}</td>
+                            <td class="text-end num">{{ bidder.bid_count or 0 }}</td>
+                            <td class="text-end t-figure">
+                                {{ '${:,.2f}'.format(bidder.highest_bid) if bidder.highest_bid else '—' }}
+                            </td>
+                            <td class="text-end num">{{ bidder.wins or 0 }}</td>
+                            <td class="text-end num">{{ bidder.removed_bids or 0 }}</td>
+                            <td>
+                                {% if bidder.outstanding %}
+                                    <span class="mark-box is-draft">{{ bidder.outstanding }} unpaid</span>
+                                {% else %}
+                                    <span class="mark-box is-live">Clear</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-users', 'No bidders yet', 'Buyer accounts will be listed here once they register.') }}
+            {% endif %}
+        </div>
     </section>
 
     <!-- Activity -->
-    <div class="row g-5 mt-3">
-        <div class="col-lg-7">
-            <div class="section-head reveal">
-                <div class="head-text">
-                    <span class="overline">Latest activity</span>
-                    <h2 class="title-md mb-0">Recent bids</h2>
+    <div class="row g-4 mt-4">
+        <div class="col-xl-7">
+            <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Recent bids</h2>
+                <div class="head-action">
+                    <a href="{{ url_for('admin_bids') }}" class="link-underline" style="font-size:.8125rem">Review all bids</a>
                 </div>
-                <div class="head-rule"></div>
             </div>
 
             {% if recent_bids %}
-            <div class="table-responsive reveal">
+            <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>
                         <tr>
@@ -48,16 +222,35 @@
                             <th>Lot</th>
                             <th class="text-end">Amount</th>
                             <th class="text-end">Placed</th>
+                            <th>Status</th>
+                            <th class="text-end">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for bid in recent_bids %}
+                        {% for bid in recent_bids[:12] %}
                         <tr>
                             <td class="t-strong">{{ bid.username }}</td>
                             <td class="t-quiet text-truncate" style="max-width:200px">{{ bid.auction_title }}</td>
                             <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
                             <td class="text-end t-quiet">
                                 {{ bid.bid_time.strftime('%d %b, %H:%M') if bid.bid_time else '—' }}
+                            </td>
+                            <td>
+                                {% if bid.status == 'removed' %}
+                                    <span class="mark-box is-accent">Removed</span>
+                                {% else %}
+                                    <span class="mark-box is-live">Accepted</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if bid.status == 'removed' %}
+                                <form method="POST" action="{{ url_for('admin_restore_bid', bid_id=bid.bid_id) }}">
+                                    <button type="submit" class="btn btn-quiet btn-sm">Reinstate</button>
+                                </form>
+                                {% else %}
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#dashRemoveBid{{ bid.bid_id }}">Remove</button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -67,19 +260,18 @@
             {% else %}
                 {{ blank('fa-gavel', 'No bids recorded', 'Bidding activity will be listed here as it happens.') }}
             {% endif %}
+            </div>
         </div>
 
-        <div class="col-lg-5">
-            <div class="section-head reveal">
-                <div class="head-text">
-                    <span class="overline">Membership</span>
-                    <h2 class="title-md mb-0">New accounts</h2>
-                </div>
-                <div class="head-rule"></div>
+        <div class="col-xl-5">
+            <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">New accounts</h2>
+                <div class="head-action"><span class="mark-box is-closed">{{ recent_users|length }}</span></div>
             </div>
 
             {% if recent_users %}
-            <div class="table-responsive reveal">
+            <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>
                         <tr>
@@ -110,7 +302,92 @@
             {% else %}
                 {{ blank('fa-user', 'No registrations', 'New accounts will appear here.') }}
             {% endif %}
+            </div>
         </div>
     </div>
-</div>
+
+<!-- Bid removal dialogs -->
+{% for bid in recent_bids[:12] %}
+    {% if bid.status != 'removed' %}
+    <div class="modal fade" id="dashRemoveBid{{ bid.bid_id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Remove this bid</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_remove_bid', bid_id=bid.bid_id) }}">
+                    <div class="modal-body">
+                        <span class="overline">{{ bid.auction_title }}</span>
+                        <div class="bid-figure mt-2">${{ "{:,.2f}".format(bid.bid_amount) }}</div>
+                        <p class="small-print mt-2 mb-4">
+                            Placed by {{ bid.first_name }} {{ bid.last_name }}.
+                            The lot price and bid count will be recalculated from the remaining bids.
+                        </p>
+
+                        <div>
+                            <label for="dashReason{{ bid.bid_id }}" class="form-label">Reason for removal</label>
+                            <textarea class="form-control" id="dashReason{{ bid.bid_id }}" name="reason" rows="3"
+                                      placeholder="e.g. Bid entered in error, or the bidder asked for it to be withdrawn."
+                                      required></textarea>
+                            <div class="form-text">The bidder will see this on their dashboard.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Remove bid</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<!-- Admin payment dialogs -->
+{% for payment in all_payments %}
+    {% if payment.payment_status == 'pending' %}
+    <div class="modal fade" id="adminPay{{ payment.payment_id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Record payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_settle_payment', payment_id=payment.payment_id) }}">
+                    <div class="modal-body">
+                        <span class="overline">{{ payment.auction_title }}</span>
+                        <div class="bid-figure mt-2">${{ "{:,.2f}".format(payment.amount) }}</div>
+                        <p class="small-print mt-2 mb-4">
+                            On behalf of {{ payment.buyer_first_name }} {{ payment.buyer_last_name }}.
+                        </p>
+
+                        <div class="mb-4">
+                            <label for="adminMethod{{ payment.payment_id }}" class="form-label">Payment method</label>
+                            <select class="form-select" id="adminMethod{{ payment.payment_id }}" name="payment_method" required>
+                                <option value="bank_transfer">Bank transfer</option>
+                                <option value="credit_card">Credit card</option>
+                                <option value="cash">Cash</option>
+                                <option value="ecocash">EcoCash</option>
+                                <option value="mpesa">M-Pesa</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="adminShip{{ payment.payment_id }}" class="form-label">Delivery address (optional)</label>
+                            <textarea class="form-control" id="adminShip{{ payment.payment_id }}"
+                                      name="shipping_address" rows="3"
+                                      placeholder="Street, city, country">{{ payment.shipping_address or '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Confirm payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
 {% endblock %}

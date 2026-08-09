@@ -1,44 +1,53 @@
-{% extends "base.html" %}
-{% from "_macros.html" import figure_cell, mark, blank %}
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, mark, blank, area_chart %}
 
-{% block title %}Consignments — Auction House{% endblock %}
+{% block title %}Consignments — BidHouse{% endblock %}
 
-{% block content %}
-<div class="container">
-
-    <header class="masthead">
+{% block dash %}
+    <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <span class="overline overline-accent mb-2">Seller account</span>
                 <h1>Your consignments</h1>
                 <p class="lede">{{ current_user.first_name }}, here is how your lots are performing.</p>
             </div>
             <div class="col-md-4 text-md-end">
-                <a href="{{ url_for('create_auction') }}" class="btn btn-primary btn-sm">Consign an item</a>
+                <a href="{{ url_for('create_auction') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Consign an item
+                </a>
             </div>
         </div>
     </header>
 
     <section class="figures-row reveal">
-        {{ figure_cell('Lots consigned', stats.total_auctions) }}
-        {{ figure_cell('Open for bidding', stats.active_auctions) }}
-        {{ figure_cell('Closed', stats.closed_auctions) }}
-        {{ figure_cell('Bids received', stats.total_bids) }}
+        {{ figure_cell('Lots consigned', stats.total_auctions, trail='All time') }}
+        {{ figure_cell('Open for bidding', stats.active_auctions, trail='Live now') }}
+        {{ figure_cell('Closed', stats.closed_auctions, trail='Completed sales') }}
+        {{ figure_cell('Bids received', stats.total_bids, trail='Across your lots') }}
     </section>
 
-    <section class="mt-5">
-        <div class="section-head reveal">
-            <div class="head-text">
-                <span class="overline">Catalogue</span>
-                <h2 class="title-md mb-0">
-                    {{ auctions|length }} lot{{ '' if auctions|length == 1 else 's' }}
-                </h2>
+    <!-- Area graphs -->
+    <div class="row g-4 mt-4">
+        <div class="col-xl-7">
+            {{ area_chart('chartLotBids', 'Bids on your lots', bids_series,
+                          subtitle='Last 14 days') }}
+        </div>
+        <div class="col-xl-5">
+            {{ area_chart('chartEarnings', 'Payments received', earnings_series,
+                          subtitle='Settled invoices, last 14 days', prefix='$', decimals=2) }}
+        </div>
+    </div>
+
+    <section class="mt-4">
+        <div class="panel reveal">
+        <div class="panel-head">
+            <h2 class="title-md mb-0">Catalogue</h2>
+            <div class="head-action">
+                <span class="mark-box is-closed">{{ auctions|length }} lot{{ '' if auctions|length == 1 else 's' }}</span>
             </div>
-            <div class="head-rule"></div>
         </div>
 
         {% if auctions %}
-        <div class="table-responsive reveal">
+        <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
                     <tr>
@@ -73,7 +82,7 @@
                         <td>{{ mark(auction.status, 'box') }}</td>
                         <td class="text-end">
                             <a href="{{ url_for('auction_details', auction_id=auction.auction_id) }}"
-                               class="overline overline-ink link-underline">View</a>
+                               class="link-underline" style="font-size:.8125rem">View</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -85,6 +94,6 @@
                      'List your first item and it will appear in the next sale.',
                      url_for('create_auction'), 'Consign an item') }}
         {% endif %}
+        </div>
     </section>
-</div>
 {% endblock %}

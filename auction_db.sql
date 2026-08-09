@@ -89,8 +89,14 @@ CREATE TABLE `bids` (
     `bid_amount` DECIMAL(10,2) NOT NULL,
     `bid_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `is_auto_bid` BOOLEAN DEFAULT FALSE,
+    -- Bids are accepted automatically; an admin may remove one with a reason
+    `status` VARCHAR(20) DEFAULT 'accepted',
+    `removed_reason` TEXT,
+    `removed_at` DATETIME,
+    `removed_by` INT,
     CONSTRAINT `fk_bids_auction` FOREIGN KEY (`auction_id`) REFERENCES `auctions`(`auction_id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_bids_bidder` FOREIGN KEY (`bidder_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE
+    CONSTRAINT `fk_bids_bidder` FOREIGN KEY (`bidder_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_bids_remover` FOREIGN KEY (`removed_by`) REFERENCES `users`(`user_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ------------------------------------------------------------

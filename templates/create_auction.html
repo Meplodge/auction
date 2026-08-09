@@ -1,28 +1,25 @@
-{% extends "base.html" %}
+{% extends "dash_base.html" %}
 
-{% block title %}Consign an item — Auction House{% endblock %}
+{% block title %}Consign an item — BidHouse{% endblock %}
 
-{% block content %}
-<div class="container">
-
-    <header class="masthead">
+{% block dash %}
+    <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <span class="overline overline-accent mb-2">Seller account</span>
                 <h1>Consign an item</h1>
                 <p class="lede">Describe the lot, set your opening bid and closing time. It goes live immediately.</p>
             </div>
             <div class="col-md-4 text-md-end">
-                <a href="{{ url_for('seller_dashboard') }}" class="overline overline-ink link-underline">Back to consignments</a>
+                <a href="{{ url_for('seller_dashboard') }}" class="btn btn-outline btn-sm">Back to consignments</a>
             </div>
         </div>
     </header>
 
     <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
-        <div class="row g-5">
-            <div class="col-lg-7">
+        <div class="row g-4">
+            <div class="col-xl-7">
                 <!-- Description -->
-                <section class="reveal">
+                <section class="panel p-4 reveal">
                     <div class="fieldset-title"><span class="n">01</span><span>The lot</span></div>
 
                     <div class="mb-4">
@@ -56,7 +53,7 @@
                 </section>
 
                 <!-- Images -->
-                <section class="mt-5 reveal">
+                <section class="panel p-4 mt-4 reveal">
                     <div class="fieldset-title"><span class="n">02</span><span>Photographs</span></div>
 
                     <div class="dropzone">
@@ -73,9 +70,9 @@
             </div>
 
             <!-- Terms rail -->
-            <div class="col-lg-5">
-                <div style="position:sticky;top:100px">
-                    <section class="reveal">
+            <div class="col-xl-5">
+                <div style="position:sticky;top:96px">
+                    <section class="panel p-4 reveal">
                         <div class="fieldset-title"><span class="n">03</span><span>Bidding terms</span></div>
 
                         <div class="mb-4">
@@ -95,7 +92,7 @@
                         </div>
                     </section>
 
-                    <section class="mt-5 reveal">
+                    <section class="panel p-4 mt-4 reveal">
                         <div class="fieldset-title"><span class="n">04</span><span>Schedule</span></div>
 
                         <div class="mb-4">
@@ -112,7 +109,7 @@
                         </div>
                     </section>
 
-                    <div class="mt-4 pt-3" style="border-top:1px solid var(--ink)">
+                    <div class="mt-4">
                         <button type="submit" class="btn btn-primary btn-block btn-lg">Publish lot</button>
                         <a href="{{ url_for('seller_dashboard') }}" class="btn btn-quiet btn-block mt-2">Cancel</a>
                     </div>
@@ -120,7 +117,6 @@
             </div>
         </div>
     </form>
-</div>
 {% endblock %}
 
 {% block scripts %}

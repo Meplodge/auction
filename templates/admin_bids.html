@@ -1,0 +1,142 @@
+{% extends "dash_base.html" %}
+{% from "_macros.html" import figure_cell, blank %}
+
+{% block title %}Bid review — BidHouse{% endblock %}
+
+{% block dash %}
+    <header class="masthead pt-0">
+        <div class="row align-items-end g-3">
+            <div class="col-md-8">
+                <h1>Bid review</h1>
+                <p class="lede">
+                    Bids are accepted the moment they are placed. Remove one here and the bidder
+                    sees your reason on their dashboard.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline btn-sm">Back to dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="figures-row reveal">
+        {{ figure_cell('Bids placed', totals.total or 0, trail='All time') }}
+        {{ figure_cell('Accepted', totals.accepted or 0, trail='Counting towards lots') }}
+        {{ figure_cell('Removed', totals.removed or 0, trail='Withdrawn by an admin') }}
+    </section>
+
+    <div class="rail mt-4 reveal">
+        <a href="{{ url_for('admin_bids') }}" class="{{ 'is-on' if status not in ['accepted', 'removed'] }}">All bids</a>
+        <a href="{{ url_for('admin_bids', status='accepted') }}" class="{{ 'is-on' if status == 'accepted' }}">Accepted</a>
+        <a href="{{ url_for('admin_bids', status='removed') }}" class="{{ 'is-on' if status == 'removed' }}">Removed</a>
+    </div>
+
+    <section class="mt-4 pb-3">
+        <div class="panel reveal">
+            <div class="panel-head">
+                <h2 class="title-md mb-0">Bids</h2>
+                <div class="head-action">
+                    <span class="mark-box is-closed">{{ bids|length }} shown</span>
+                </div>
+            </div>
+
+            {% if bids %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Bidder</th>
+                            <th>Lot</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end">Placed</th>
+                            <th>Status</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in bids %}
+                        <tr>
+                            <td>
+                                <span class="t-strong">{{ bid.first_name }} {{ bid.last_name }}</span>
+                                <div class="small-print">{{ bid.email }}</div>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('auction_details', auction_id=bid.auction_id) }}"
+                                   class="t-strong link-underline">{{ bid.auction_title }}</a>
+                                <div class="small-print">Lot {{ '%03d'|format(bid.auction_id) }}</div>
+                            </td>
+                            <td class="text-end t-figure">${{ "{:,.2f}".format(bid.bid_amount) }}</td>
+                            <td class="text-end t-quiet">
+                                {{ bid.bid_time.strftime('%d %b %Y, %H:%M') if bid.bid_time else '—' }}
+                            </td>
+                            <td>
+                                {% if bid.status == 'removed' %}
+                                    <span class="mark-box is-accent">Removed</span>
+                                    <div class="small-print mt-1" style="max-width:30ch">
+                                        {{ bid.removed_reason }}
+                                    </div>
+                                {% else %}
+                                    <span class="mark-box is-live">Accepted</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if bid.status == 'removed' %}
+                                <form method="POST" action="{{ url_for('admin_restore_bid', bid_id=bid.bid_id) }}">
+                                    <button type="submit" class="btn btn-quiet btn-sm">Reinstate</button>
+                                </form>
+                                {% else %}
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#removeBid{{ bid.bid_id }}">Remove</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {{ blank('fa-gavel', 'No bids to review',
+                         'Bids appear here as soon as buyers start bidding.',
+                         url_for('search'), 'Browse lots') }}
+            {% endif %}
+        </div>
+    </section>
+
+<!-- Removal dialogs -->
+{% for bid in bids %}
+    {% if bid.status != 'removed' %}
+    <div class="modal fade" id="removeBid{{ bid.bid_id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Remove this bid</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_remove_bid', bid_id=bid.bid_id) }}">
+                    <div class="modal-body">
+                        <span class="overline">{{ bid.auction_title }}</span>
+                        <div class="bid-figure mt-2">${{ "{:,.2f}".format(bid.bid_amount) }}</div>
+                        <p class="small-print mt-2 mb-4">
+                            Placed by {{ bid.first_name }} {{ bid.last_name }}.
+                            The lot price and bid count will be recalculated from the remaining bids.
+                        </p>
+
+                        <div>
+                            <label for="reason{{ bid.bid_id }}" class="form-label">Reason for removal</label>
+                            <textarea class="form-control" id="reason{{ bid.bid_id }}" name="reason" rows="3"
+                                      placeholder="e.g. Bid entered in error, or the bidder asked for it to be withdrawn."
+                                      required></textarea>
+                            <div class="form-text">The bidder will see this on their dashboard.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Remove bid</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+{% endblock %}

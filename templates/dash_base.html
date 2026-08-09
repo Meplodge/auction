@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{# Sidebar shell shared by every signed-in workspace page. #}
+
+{% block body_class %}is-dash{% endblock %}
+
+{% block content %}
+{% set here = request.path %}
+<div class="dash-wrap">
+    <div class="shell">
+        <aside class="side">
+            <div class="side-group">
+                <div class="side-label">Main menu</div>
+                <a class="side-link {{ 'is-on' if here in ['/dashboard', '/buyer/dashboard', '/seller/dashboard', '/admin/dashboard'] }}"
+                   href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-table-columns"></i> Dashboard
+                </a>
+                <a class="side-link {{ 'is-on' if here == '/search' }}" href="{{ url_for('search') }}">
+                    <i class="far fa-compass"></i> Browse lots
+                </a>
+                {% if current_user.user_type in ['seller', 'admin'] %}
+                <a class="side-link {{ 'is-on' if here == '/create_auction' }}" href="{{ url_for('create_auction') }}">
+                    <i class="fas fa-plus"></i> Consign an item
+                </a>
+                {% endif %}
+                {% if current_user.user_type == 'admin' %}
+                <a class="side-link {{ 'is-on' if here == '/admin/bids' }}" href="{{ url_for('admin_bids') }}">
+                    <i class="fas fa-gavel"></i> Bid review
+                </a>
+                {% endif %}
+                {% if current_user.user_type in ['buyer', 'admin'] %}
+                <a class="side-link {{ 'is-on' if here == '/payments' }}" href="{{ url_for('payments') }}">
+                    <i class="far fa-file-lines"></i>
+                    {{ 'All invoices' if current_user.user_type == 'admin' else 'Invoices' }}
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="side-group">
+                <div class="side-label">General</div>
+                <a class="side-link {{ 'is-on' if here == '/profile' }}" href="{{ url_for('profile') }}">
+                    <i class="far fa-user"></i> Profile
+                </a>
+                <a class="side-link" href="{{ url_for('search', status='closed') }}">
+                    <i class="fas fa-clock-rotate-left"></i> Past results
+                </a>
+                <a class="side-link" href="{{ url_for('logout') }}">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Sign out
+                </a>
+            </div>
+
+            {% if current_user.user_type == 'buyer' %}
+            <div class="side-promo">
+                <h6>Start selling</h6>
+                <p>Have something worth bidding on? Register a seller account and consign it.</p>
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm btn-block">Learn more</a>
+            </div>
+            {% else %}
+            <div class="side-promo">
+                <h6>Sell faster</h6>
+                <p>Lots with three or more photographs attract noticeably more bids.</p>
+                <a href="{{ url_for('create_auction') }}" class="btn btn-primary btn-sm btn-block">New lot</a>
+            </div>
+            {% endif %}
+        </aside>
+
+        <div class="shell-main">
+            {% block dash %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
