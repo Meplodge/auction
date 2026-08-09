@@ -1692,7 +1692,12 @@ def search():
     min_price = request.args.get('min_price', '')
     max_price = request.args.get('max_price', '')
     status = request.args.get('status', 'active')
-    
+    sort = request.args.get('sort', 'newest')
+    min_bids = request.args.get('min_bids', '')
+    max_bids = request.args.get('max_bids', '')
+    ending = request.args.get('ending', '')
+    seller_id = request.args.get('seller', '')
+
     try:
         cur = mysql.connection.cursor()
         sql = """
@@ -1703,39 +1708,81 @@ def search():
             WHERE 1=1
         """
         params = []
-        
+
         if query:
             sql += " AND (a.title LIKE %s OR a.description LIKE %s)"
             search_term = f"%{query}%"
             params.extend([search_term, search_term])
-        
+
         if category:
             sql += " AND a.category = %s"
             params.append(category)
-        
+
         if min_price:
             sql += " AND a.current_price >= %s"
             params.append(min_price)
-        
+
         if max_price:
             sql += " AND a.current_price <= %s"
             params.append(max_price)
-        
+
         if status and status != 'all':
             sql += " AND a.status = %s"
             params.append(status)
-        
-        sql += " ORDER BY a.created_at DESC"
-        
+
+        if min_bids:
+            sql += " AND a.total_bids >= %s"
+            params.append(min_bids)
+
+        if max_bids:
+            sql += " AND a.total_bids <= %s"
+            params.append(max_bids)
+
+        if seller_id:
+            sql += " AND a.seller_id = %s"
+            params.append(seller_id)
+
+        if ending == 'today':
+            sql += " AND a.status = 'active' AND a.end_date <= DATE_ADD(NOW(), INTERVAL 1 DAY)"
+        elif ending == 'week':
+            sql += " AND a.status = 'active' AND a.end_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)"
+        elif ending == 'ended':
+            sql += " AND a.status = 'closed'"
+
+        # Sorting
+        if sort == 'price_low':
+            sql += " ORDER BY a.current_price ASC"
+        elif sort == 'price_high':
+            sql += " ORDER BY a.current_price DESC"
+        elif sort == 'bids':
+            sql += " ORDER BY a.total_bids DESC"
+        elif sort == 'ending':
+            sql += " ORDER BY a.end_date ASC"
+        elif sort == 'oldest':
+            sql += " ORDER BY a.created_at ASC"
+        else:  # newest
+            sql += " ORDER BY a.created_at DESC"
+
         cur.execute(sql, params)
         auctions = cur.fetchall()
+
+        # Get sellers for the seller filter
+        cur.execute("""
+            SELECT DISTINCT u.user_id, u.first_name, u.last_name
+            FROM users u
+            JOIN auctions a ON a.seller_id = u.user_id
+            ORDER BY u.first_name, u.last_name
+        """)
+        sellers = cur.fetchall()
+
         cur.close()
-        
-        return render_template('search.html', auctions=auctions, query=query, categories=get_categories())
+
+        return render_template('search.html', auctions=auctions, query=query,
+                               categories=get_categories(), sellers=sellers)
     except Exception as e:
         print(f"Search error: {e}")
         flash('Error performing search.', 'danger')
-        return render_template('search.html', auctions=[], query=query)
+        return render_template('search.html', auctions=[], query=query, categories=[], sellers=[])
 
 # ============================================
 # USER PROFILE

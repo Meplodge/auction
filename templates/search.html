@@ -9,7 +9,12 @@
 {% set sel_status = request.args.get('status', 'active') %}
 {% set sel_min = request.args.get('min_price', '') %}
 {% set sel_max = request.args.get('max_price', '') %}
-{% set filtered = query or sel_category or sel_min or sel_max or sel_status != 'active' %}
+{% set sel_sort = request.args.get('sort', 'newest') %}
+{% set sel_min_bids = request.args.get('min_bids', '') %}
+{% set sel_max_bids = request.args.get('max_bids', '') %}
+{% set sel_ending = request.args.get('ending', '') %}
+{% set sel_seller = request.args.get('seller', '') %}
+{% set filtered = query or sel_category or sel_min or sel_max or sel_status != 'active' or sel_sort != 'newest' or sel_min_bids or sel_max_bids or sel_ending or sel_seller %}
 
 <div class="container">
 
@@ -88,9 +93,65 @@
                                    placeholder="Max" value="{{ sel_max }}">
                         </div>
                     </div>
+                    <div class="d-flex gap-1 flex-wrap mt-2">
+                        <button type="button" class="btn btn-quiet btn-sm price-preset" data-min="0" data-max="100">Under $100</button>
+                        <button type="button" class="btn btn-quiet btn-sm price-preset" data-min="100" data-max="500">$100–500</button>
+                        <button type="button" class="btn btn-quiet btn-sm price-preset" data-min="500" data-max="1000">$500–1k</button>
+                        <button type="button" class="btn btn-quiet btn-sm price-preset" data-min="1000" data-max="">$1k+</button>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block">Apply</button>
+                <div class="mb-4">
+                    <label class="form-label">Bid count</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="number" class="form-control" name="min_bids" min="0" step="1"
+                                   placeholder="Min" value="{{ sel_min_bids }}">
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control" name="max_bids" min="0" step="1"
+                                   placeholder="Max" value="{{ sel_max_bids }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="ending" class="form-label">Time ending</label>
+                    <select class="form-select" id="ending" name="ending">
+                        <option value="" {% if not sel_ending %}selected{% endif %}>Any time</option>
+                        <option value="today" {% if sel_ending == 'today' %}selected{% endif %}>Ending today</option>
+                        <option value="week" {% if sel_ending == 'week' %}selected{% endif %}>Ending this week</option>
+                        <option value="ended" {% if sel_ending == 'ended' %}selected{% endif %}>Already ended</option>
+                    </select>
+                </div>
+
+                {% if sellers %}
+                <div class="mb-4">
+                    <label for="seller" class="form-label">Seller</label>
+                    <select class="form-select" id="seller" name="seller">
+                        <option value="" {% if not sel_seller %}selected{% endif %}>All sellers</option>
+                        {% for s in sellers %}
+                            <option value="{{ s.user_id }}" {% if sel_seller == s.user_id|string %}selected{% endif %}>
+                                {{ s.first_name }} {{ s.last_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="mb-4">
+                    <label for="sort" class="form-label">Sort by</label>
+                    <select class="form-select" id="sort" name="sort">
+                        <option value="newest" {% if sel_sort == 'newest' %}selected{% endif %}>Newest first</option>
+                        <option value="oldest" {% if sel_sort == 'oldest' %}selected{% endif %}>Oldest first</option>
+                        <option value="price_low" {% if sel_sort == 'price_low' %}selected{% endif %}>Price: low to high</option>
+                        <option value="price_high" {% if sel_sort == 'price_high' %}selected{% endif %}>Price: high to low</option>
+                        <option value="bids" {% if sel_sort == 'bids' %}selected{% endif %}>Most bids</option>
+                        <option value="ending" {% if sel_sort == 'ending' %}selected{% endif %}>Ending soonest</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Apply filters</button>
             </form>
         </aside>
 
@@ -112,4 +173,16 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Price preset buttons fill the min/max fields
+document.querySelectorAll('.price-preset').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelector('[name="min_price"]').value = this.dataset.min;
+        document.querySelector('[name="max_price"]').value = this.dataset.max;
+    });
+});
+</script>
 {% endblock %}
