@@ -101,6 +101,44 @@
                         <i class="fas fa-chevron-right" style="font-size:.65rem"></i>
                     </a>
                 </div>
+
+                <!-- Lot stats: bids, closing, seller, department -->
+                <div class="show-stats">
+                    <div class="show-stat">
+                        <span class="show-stat-icon"><i class="fas fa-gavel"></i></span>
+                        <span class="show-stat-body">
+                            <span class="label">Bids</span>
+                            <span class="figure">{{ lot.total_bids or 0 }}</span>
+                        </span>
+                    </div>
+                    <div class="show-stat">
+                        <span class="show-stat-icon"><i class="far fa-clock"></i></span>
+                        <span class="show-stat-body">
+                            <span class="label">Closes</span>
+                            <span class="figure">
+                                {% if lot.status == 'active' and lot.end_date %}
+                                    <span data-countdown="{{ lot.end_date }}">&mdash;</span>
+                                {% else %}
+                                    Ended
+                                {% endif %}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="show-stat">
+                        <span class="show-stat-icon"><i class="far fa-user"></i></span>
+                        <span class="show-stat-body">
+                            <span class="label">Seller</span>
+                            <span class="figure">{{ lot.first_name }} {{ (lot.last_name or '')[:1] }}{{ '.' if lot.last_name }}</span>
+                        </span>
+                    </div>
+                    <div class="show-stat">
+                        <span class="show-stat-icon"><i class="fas fa-tag"></i></span>
+                        <span class="show-stat-body">
+                            <span class="label">Department</span>
+                            <span class="figure">{{ lot.category or 'Unsorted' }}</span>
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <div class="show-media">
@@ -113,37 +151,8 @@
             </div>
         </div>
 
-        <!-- Slide footer: the four figures, plus slide-to-slide arrows -->
+        <!-- Slide footer: slide-to-slide arrows -->
         <div class="show-foot">
-            <div class="show-specs">
-                <div class="show-spec">
-                    <i class="fas fa-gavel"></i>
-                    <span class="label">Bids</span>
-                    <span class="figure">{{ lot.total_bids or 0 }}</span>
-                </div>
-                <div class="show-spec">
-                    <i class="far fa-clock"></i>
-                    <span class="label">Closes</span>
-                    <span class="figure">
-                        {% if lot.status == 'active' and lot.end_date %}
-                            <span data-countdown="{{ lot.end_date }}">&mdash;</span>
-                        {% else %}
-                            Ended
-                        {% endif %}
-                    </span>
-                </div>
-                <div class="show-spec">
-                    <i class="far fa-user"></i>
-                    <span class="label">Seller</span>
-                    <span class="figure">{{ lot.first_name }} {{ (lot.last_name or '')[:1] }}{{ '.' if lot.last_name }}</span>
-                </div>
-                <div class="show-spec">
-                    <i class="fas fa-tag"></i>
-                    <span class="label">Department</span>
-                    <span class="figure">{{ lot.category or 'Unsorted' }}</span>
-                </div>
-            </div>
-
             <div class="show-steps">
                 <span class="show-count">{{ '%02d'|format(loop.index) }} / {{ '%02d'|format(lots|length) }}</span>
                 <button type="button" data-step="prev" aria-label="Previous lot">

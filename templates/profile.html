@@ -168,6 +168,99 @@
                 </div>
                 {% endif %}
             </section>
+
+            <!-- Close account -->
+            <section class="panel p-4 reveal mt-4" style="border-left:4px solid var(--danger)">
+                <div class="fieldset-title">
+                    <span class="n">{{ '04' if current_user.user_type in ['seller', 'admin'] and recent_lots else '03' }}</span>
+                    <span>Close account</span>
+                </div>
+
+                <p class="small-print">
+                    Closing your account permanently erases your bids, saved lots
+                    {%- if current_user.user_type in ['seller', 'admin'] %}, consignments and their images{% endif %}
+                    and invoice history. This cannot be undone.
+                </p>
+
+                {% if stats.pending_payments %}
+                <p class="small-print mb-0" style="color:var(--danger)">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    You have {{ stats.pending_payments }} unsettled invoice{{ '' if stats.pending_payments == 1 else 's' }}
+                    (${{ "{:,.2f}".format(stats.amount_owed) }}).
+                    <a href="{{ url_for('payments') }}" class="link-underline">Settle up</a> before closing your account.
+                </p>
+                {% else %}
+                <button type="button" class="btn btn-outline btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#closeAccount">
+                    <i class="fas fa-user-slash"></i> Close my account
+                </button>
+                {% endif %}
+            </section>
         </div>
     </div>
+
+{% if not stats.pending_payments %}
+<!-- Close account confirmation -->
+<div class="modal fade" id="closeAccount" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Close your account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('delete_account') }}" data-delete-form>
+                <div class="modal-body">
+                    <p class="small-print mb-4" style="color:var(--danger)">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        This permanently erases your bids, saved lots
+                        {%- if current_user.user_type in ['seller', 'admin'] %}, consignments and their images{% endif %}
+                        and invoice history. It cannot be undone.
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="del_password" class="form-label">Confirm your password</label>
+                        <input type="password" class="form-control" id="del_password" name="password"
+                               autocomplete="current-password" required>
+                    </div>
+                    <div>
+                        <label for="del_confirm" class="form-label">Type <strong>DELETE</strong> to confirm</label>
+                        <input type="text" class="form-control" id="del_confirm" name="confirm"
+                               placeholder="DELETE" autocomplete="off" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger" data-delete-submit disabled>
+                        Permanently close account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Only arm the delete button once DELETE has been typed exactly
+(function () {
+    const form = document.querySelector('[data-delete-form]');
+    if (!form) return;
+
+    const confirmField = form.querySelector('#del_confirm');
+    const submit = form.querySelector('[data-delete-submit]');
+
+    confirmField.addEventListener('input', function () {
+        submit.disabled = this.value.trim() !== 'DELETE';
+    });
+
+    const modal = document.getElementById('closeAccount');
+    modal.addEventListener('shown.bs.modal', () => form.querySelector('#del_password').focus());
+    modal.addEventListener('hidden.bs.modal', function () {
+        form.reset();
+        submit.disabled = true;
+    });
+})();
+</script>
 {% endblock %}

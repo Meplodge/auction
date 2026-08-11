@@ -196,10 +196,11 @@
             const target = parseFloat(el.dataset.count) || 0;
             const decimals = parseInt(el.dataset.countDecimals || '0', 10);
             const prefix = el.dataset.countPrefix || '';
+            const suffix = el.dataset.countSuffix || '';
             const format = (v) => prefix + v.toLocaleString('en-US', {
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
-            });
+            }) + suffix;
 
             if (prefersReducedMotion) { el.textContent = format(target); return; }
 
@@ -384,6 +385,17 @@
                 bidInput.focus();
                 bidInput.classList.add('is-valid');
                 setTimeout(() => bidInput.classList.remove('is-valid'), 1200);
+            });
+        });
+
+        // Lock the bid form after submitting so a double click cannot
+        // replay the same bid while the first request is in flight
+        document.querySelectorAll('[data-bid-form]').forEach(form => {
+            form.addEventListener('submit', function () {
+                const submit = form.querySelector('button[type="submit"]');
+                if (!submit) return;
+                submit.disabled = true;
+                submit.textContent = 'Placing bid…';
             });
         });
 

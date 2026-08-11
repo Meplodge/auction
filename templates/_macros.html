@@ -108,13 +108,17 @@
 {% endmacro %}
 
 
-{# Statistic cell for dashboards #}
-{% macro figure_cell(label, value, trail='', prefix='', decimals=0, variant='') %}
-<div class="figure-cell {{ variant }}">
-    <span class="overline">{{ label }}</span>
-    <div class="value" data-count="{{ value or 0 }}" data-count-prefix="{{ prefix }}" data-count-decimals="{{ decimals }}">
-        {{ prefix }}0
+{# Statistic cell for dashboards. Supports an icon and an optional trend badge. #}
+{% macro figure_cell(label, value, trail='', prefix='', suffix='', decimals=0, variant='', icon='', trend='') %}
+<div class="figure-cell {{ variant }} {{ 'has-icon' if icon }}">
+    {% if icon %}<span class="figure-icon"><i class="fas {{ icon }}"></i></span>{% endif %}
+    <div class="figure-body">
+        <span class="overline">{{ label }}</span>
+        <div class="value" data-count="{{ value or 0 }}" data-count-prefix="{{ prefix }}" data-count-suffix="{{ suffix }}" data-count-decimals="{{ decimals }}">
+            {{ prefix }}0{{ suffix }}
+        </div>
+        {% if trail %}<div class="trail">{{ trail }}</div>{% endif %}
+        {% if trend %}<span class="figure-trend {{ trend|lower }}">{{ trend }}</span>{% endif %}
     </div>
-    {% if trail %}<div class="trail">{{ trail }}</div>{% endif %}
 </div>
 {% endmacro %}

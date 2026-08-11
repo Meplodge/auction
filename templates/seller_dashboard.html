@@ -4,6 +4,12 @@
 {% block title %}Consignments — Auction System{% endblock %}
 
 {% block dash %}
+{% set ss = seller_stats or {} %}
+{% set total_lots = stats.total_auctions or 0 %}
+{% set closed_lots = stats.closed_auctions or 0 %}
+{% set lots_sold = ss.lots_sold or 0 %}
+{% set sell_through = (lots_sold * 100 / closed_lots)|round(0)|int if closed_lots else 0 %}
+
     <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
@@ -18,11 +24,37 @@
         </div>
     </header>
 
+    <!-- Needs attention -->
     <section class="figures-row reveal">
+        <a href="{{ url_for('seller_dashboard') }}#catalogue" class="figure-cell {{ 'is-accent' if ss.no_bids else '' }}">
+            <span class="overline">Lots without bids</span>
+            <div class="value" data-count="{{ ss.no_bids or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">Live but no interest</div>
+        </a>
+        <a href="{{ url_for('seller_dashboard') }}#catalogue" class="figure-cell">
+            <span class="overline">Open for bidding</span>
+            <div class="value" data-count="{{ stats.active_auctions or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">Live now</div>
+        </a>
+        <a href="{{ url_for('seller_dashboard') }}#catalogue" class="figure-cell">
+            <span class="overline">Watchers</span>
+            <div class="value" data-count="{{ ss.watchers or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">Following your lots</div>
+        </a>
+        <a href="{{ url_for('payments') }}" class="figure-cell">
+            <span class="overline">Bids received</span>
+            <div class="value" data-count="{{ stats.total_bids or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">Across your lots</div>
+        </a>
+    </section>
+
+    <!-- Figures -->
+    <section class="figures-row reveal mt-4">
+        {{ figure_cell('Revenue', ss.total_revenue or 0, prefix='$', decimals=2,
+                       trail='Settled payments', variant='is-brand') }}
         {{ figure_cell('Lots consigned', stats.total_auctions, trail='All time') }}
-        {{ figure_cell('Open for bidding', stats.active_auctions, trail='Live now') }}
-        {{ figure_cell('Closed', stats.closed_auctions, trail='Completed sales') }}
-        {{ figure_cell('Bids received', stats.total_bids, trail='Across your lots') }}
+        {{ figure_cell('Lots sold', lots_sold, trail=closed_lots ~ ' closed') }}
+        {{ figure_cell('Sell-through', sell_through, suffix='%', trail='Of closed lots') }}
     </section>
 
     <!-- Area graphs -->
@@ -37,7 +69,7 @@
         </div>
     </div>
 
-    <section class="mt-4">
+    <section class="mt-4" id="catalogue">
         <div class="panel reveal">
         <div class="panel-head">
             <h2 class="title-md mb-0">Catalogue</h2>

@@ -43,129 +43,138 @@
         </p>
     </header>
 
-    <!-- Departments -->
-    {% if departments %}
-    <div class="cat-tiles mb-4">
-        <a href="{{ url_for('browse', status=status, price=price, ending=ending, sort=sort) }}"
-           class="cat-tile {{ 'is-on' if not category }}">
-            <span class="cat-icon"><i class="fas fa-border-all"></i></span>
-            <span class="cat-text">
-                <span class="cat-name">All departments</span>
-                <span class="cat-count">{{ departments|sum(attribute='total') }} lots</span>
-            </span>
-        </a>
-        {% for dept in departments %}
-        <a href="{{ url_for('browse', category=dept.name, status=status, price=price, ending=ending, sort=sort) }}"
-           class="cat-tile {{ 'is-on' if category == dept.name }}">
-            <span class="cat-icon"><i class="fas {{ dept_icons.get(dept.name, 'fa-tag') }}"></i></span>
-            <span class="cat-text">
-                <span class="cat-name">{{ dept.name }}</span>
-                <span class="cat-count">{{ dept.live }} open &middot; {{ dept.total }} total</span>
-            </span>
-        </a>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <div class="search-layout">
+        <!-- Departments sidebar -->
+        <aside class="search-refine">
+            <div class="panel p-3 reveal" style="position:sticky;top:96px">
+                <div class="fieldset-title"><span>Departments</span></div>
 
-    <!-- Filter bar -->
-    <form method="GET" action="{{ url_for('browse') }}" class="filter-bar mb-4" data-autosubmit>
-        <select class="form-select" name="category" aria-label="Department">
-            <option value="">All departments</option>
-            {% for dept in departments %}
-                <option value="{{ dept.name }}" {{ 'selected' if category == dept.name }}>{{ dept.name }}</option>
-            {% endfor %}
-        </select>
-
-        <select class="form-select" name="status" aria-label="Sale status">
-            <option value="active" {{ 'selected' if status == 'active' }}>Open for bidding</option>
-            <option value="closed" {{ 'selected' if status == 'closed' }}>Closed</option>
-            <option value="all" {{ 'selected' if status not in ['active', 'closed'] }}>Any status</option>
-        </select>
-
-        <select class="form-select" name="price" aria-label="Estimate">
-            <option value="">Price: any</option>
-            <option value="under100" {{ 'selected' if price == 'under100' }}>Under $100</option>
-            <option value="100-500" {{ 'selected' if price == '100-500' }}>$100 &ndash; $500</option>
-            <option value="500-1000" {{ 'selected' if price == '500-1000' }}>$500 &ndash; $1,000</option>
-            <option value="1000plus" {{ 'selected' if price == '1000plus' }}>$1,000 and above</option>
-        </select>
-
-        <select class="form-select" name="ending" aria-label="Closing">
-            <option value="">Closing: any</option>
-            <option value="today" {{ 'selected' if ending == 'today' }}>Closing today</option>
-            <option value="week" {{ 'selected' if ending == 'week' }}>Closing this week</option>
-        </select>
-
-        <select class="form-select" name="sort" aria-label="Sort by">
-            <option value="newest" {{ 'selected' if sort == 'newest' }}>Newest first</option>
-            <option value="oldest" {{ 'selected' if sort == 'oldest' }}>Oldest first</option>
-            <option value="price_low" {{ 'selected' if sort == 'price_low' }}>Price: low to high</option>
-            <option value="price_high" {{ 'selected' if sort == 'price_high' }}>Price: high to low</option>
-            <option value="bids" {{ 'selected' if sort == 'bids' }}>Most bids</option>
-            <option value="ending" {{ 'selected' if sort == 'ending' }}>Closing soonest</option>
-        </select>
-
-        <noscript><button type="submit" class="btn btn-primary btn-sm">Apply</button></noscript>
-
-        {% if filtered %}
-        <a href="{{ url_for('browse') }}" class="btn btn-outline btn-sm filter-clear">
-            <i class="fas fa-xmark"></i> Clear filter
-        </a>
-        {% endif %}
-    </form>
-
-    <!-- Lots -->
-    {% if auctions %}
-    <div class="row g-3 g-lg-4 lot-grid">
-        {% for auction in auctions %}
-        <div class="col-6 col-lg-4 col-xl-3">
-            {{ lot_card(auction, delay=loop.index0 * 45) }}
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Pagination -->
-    {% if total_pages > 1 %}
-    <nav class="pager" aria-label="Catalogue pages">
-        {% if page > 1 %}
-            <a href="{{ url_for('browse', page=page-1, **keep) }}" class="pager-step">
-                <i class="fas fa-arrow-left"></i> Prev
-            </a>
-        {% else %}
-            <span class="pager-step is-off"><i class="fas fa-arrow-left"></i> Prev</span>
-        {% endif %}
-
-        <div class="pager-pages">
-            {% for p in range(1, total_pages + 1) %}
-                {% if p == 1 or p == total_pages or (p >= page - 1 and p <= page + 1) %}
-                    {% if p == page %}
-                        <span class="pager-page is-on" aria-current="page">{{ p }}</span>
-                    {% else %}
-                        <a href="{{ url_for('browse', page=p, **keep) }}" class="pager-page">{{ p }}</a>
-                    {% endif %}
-                {% elif p == page - 2 or p == page + 2 %}
-                    <span class="pager-gap">&hellip;</span>
+                {% if departments %}
+                <div class="dept-list">
+                    <a href="{{ url_for('browse', status=status, price=price, ending=ending, sort=sort) }}"
+                       class="cat-tile {{ 'is-on' if not category }}">
+                        <span class="cat-icon"><i class="fas fa-border-all"></i></span>
+                        <span class="cat-text">
+                            <span class="cat-name">All departments</span>
+                            <span class="cat-count">{{ departments|sum(attribute='total') }} lots</span>
+                        </span>
+                    </a>
+                    {% for dept in departments %}
+                    <a href="{{ url_for('browse', category=dept.name, status=status, price=price, ending=ending, sort=sort) }}"
+                       class="cat-tile {{ 'is-on' if category == dept.name }}">
+                        <span class="cat-icon"><i class="fas {{ dept_icons.get(dept.name, 'fa-tag') }}"></i></span>
+                        <span class="cat-text">
+                            <span class="cat-name">{{ dept.name }}</span>
+                            <span class="cat-count">{{ dept.live }} open &middot; {{ dept.total }} total</span>
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
                 {% endif %}
-            {% endfor %}
+
+                <!-- Filter bar -->
+                <form method="GET" action="{{ url_for('browse') }}" class="filter-stack mt-3" data-autosubmit>
+                    <input type="hidden" name="category" value="{{ category or '' }}">
+
+                    <label class="form-label">Sale status</label>
+                    <select class="form-select mb-3" name="status" aria-label="Sale status">
+                        <option value="active" {{ 'selected' if status == 'active' }}>Open for bidding</option>
+                        <option value="closed" {{ 'selected' if status == 'closed' }}>Closed</option>
+                        <option value="all" {{ 'selected' if status not in ['active', 'closed'] }}>Any status</option>
+                    </select>
+
+                    <label class="form-label">Estimate</label>
+                    <select class="form-select mb-3" name="price" aria-label="Estimate">
+                        <option value="">Price: any</option>
+                        <option value="under100" {{ 'selected' if price == 'under100' }}>Under $100</option>
+                        <option value="100-500" {{ 'selected' if price == '100-500' }}>$100 &ndash; $500</option>
+                        <option value="500-1000" {{ 'selected' if price == '500-1000' }}>$500 &ndash; $1,000</option>
+                        <option value="1000plus" {{ 'selected' if price == '1000plus' }}>$1,000 and above</option>
+                    </select>
+
+                    <label class="form-label">Closing</label>
+                    <select class="form-select mb-3" name="ending" aria-label="Closing">
+                        <option value="">Any time</option>
+                        <option value="today" {{ 'selected' if ending == 'today' }}>Closing today</option>
+                        <option value="week" {{ 'selected' if ending == 'week' }}>Closing this week</option>
+                    </select>
+
+                    <label class="form-label">Sort by</label>
+                    <select class="form-select mb-3" name="sort" aria-label="Sort by">
+                        <option value="newest" {{ 'selected' if sort == 'newest' }}>Newest first</option>
+                        <option value="oldest" {{ 'selected' if sort == 'oldest' }}>Oldest first</option>
+                        <option value="price_low" {{ 'selected' if sort == 'price_low' }}>Price: low to high</option>
+                        <option value="price_high" {{ 'selected' if sort == 'price_high' }}>Price: high to low</option>
+                        <option value="bids" {{ 'selected' if sort == 'bids' }}>Most bids</option>
+                        <option value="ending" {{ 'selected' if sort == 'ending' }}>Closing soonest</option>
+                    </select>
+
+                    <noscript><button type="submit" class="btn btn-primary btn-block">Apply</button></noscript>
+                </form>
+
+                {% if filtered %}
+                <a href="{{ url_for('browse') }}" class="btn btn-outline btn-sm btn-block mt-2 filter-clear">
+                    <i class="fas fa-xmark"></i> Clear filter
+                </a>
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- Results -->
+        <div class="search-results">
+            {% if auctions %}
+            <div class="row g-3 g-lg-4 lot-grid-3">
+                {% for auction in auctions %}
+                <div class="col-6 col-xl-4">
+                    {{ lot_card(auction, delay=loop.index0 * 45) }}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <nav class="pager" aria-label="Catalogue pages">
+                {% if page > 1 %}
+                    <a href="{{ url_for('browse', page=page-1, **keep) }}" class="pager-step">
+                        <i class="fas fa-arrow-left"></i> Prev
+                    </a>
+                {% else %}
+                    <span class="pager-step is-off"><i class="fas fa-arrow-left"></i> Prev</span>
+                {% endif %}
+
+                <div class="pager-pages">
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 1 and p <= page + 1) %}
+                            {% if p == page %}
+                                <span class="pager-page is-on" aria-current="page">{{ p }}</span>
+                            {% else %}
+                                <a href="{{ url_for('browse', page=p, **keep) }}" class="pager-page">{{ p }}</a>
+                            {% endif %}
+                        {% elif p == page - 2 or p == page + 2 %}
+                            <span class="pager-gap">&hellip;</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% if page < total_pages %}
+                    <a href="{{ url_for('browse', page=page+1, **keep) }}" class="pager-step">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </a>
+                {% else %}
+                    <span class="pager-step is-off">Next <i class="fas fa-arrow-right"></i></span>
+                {% endif %}
+            </nav>
+            {% endif %}
+
+            {% else %}
+                {{ blank('fa-box-open', 'Nothing in this department yet',
+                         'Try another department, or widen the estimate and closing filters.',
+                         url_for('browse'), 'Clear filter') }}
+            {% endif %}
+
+            <div class="pb-5"></div>
         </div>
-
-        {% if page < total_pages %}
-            <a href="{{ url_for('browse', page=page+1, **keep) }}" class="pager-step">
-                Next <i class="fas fa-arrow-right"></i>
-            </a>
-        {% else %}
-            <span class="pager-step is-off">Next <i class="fas fa-arrow-right"></i></span>
-        {% endif %}
-    </nav>
-    {% endif %}
-
-    {% else %}
-        {{ blank('fa-box-open', 'Nothing in this department yet',
-                 'Try another department, or widen the estimate and closing filters.',
-                 url_for('browse'), 'Clear filter') }}
-    {% endif %}
-
-    <div class="pb-5"></div>
+    </div>
 </div>
 {% endblock %}
 

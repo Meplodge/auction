@@ -6,6 +6,9 @@
 {% block dash %}
 {% set leading = my_bids|selectattr('auction_status', 'equalto', 'active')|selectattr('highest_bid')|list %}
 {% set removed = my_bids|selectattr('status', 'equalto', 'removed')|list %}
+{% set bs = buyer_stats or {} %}
+{% set closed_entered = bs.closed_entered or 0 %}
+{% set win_rate = (wins|length * 100 / closed_entered)|round(0)|int if closed_entered else 0 %}
 
     <header class="masthead pt-0">
         <div class="row align-items-end g-3">
@@ -73,15 +76,39 @@
     </div>
     {% endif %}
 
+    <!-- Needs attention -->
     <section class="figures-row reveal">
-        {{ figure_cell('Bids placed', my_bids|rejectattr('status', 'equalto', 'removed')|list|length, trail='Across all lots') }}
-        {{ figure_cell('Lots saved', watchlist|length, trail='Following') }}
-        {{ figure_cell('Lots won', wins|length, trail=pending_invoices|length ~ ' awaiting payment') }}
-        {{ figure_cell('Currently leading', leading|length, trail='Highest bidder') }}
-        {% if pending_invoices %}
-        {{ figure_cell('Amount due', pending_invoices|sum(attribute='amount'), prefix='$', decimals=2,
-                       trail='Pending invoices', variant='is-accent') }}
-        {% endif %}
+        <a href="{{ url_for('payments') }}" class="figure-cell {{ 'is-accent' if pending_invoices else '' }}">
+            <span class="overline">Amount due</span>
+            <div class="value" data-count="{{ pending_invoices|sum(attribute='amount') }}"
+                 data-count-prefix="$" data-count-decimals="2">$0</div>
+            <div class="trail">{{ pending_invoices|length }} pending invoice{{ '' if pending_invoices|length == 1 else 's' }}</div>
+        </a>
+        <a href="{{ url_for('buyer_dashboard') }}#bids" class="figure-cell {{ 'is-accent' if bs.outbid else '' }}">
+            <span class="overline">Outbid</span>
+            <div class="value" data-count="{{ bs.outbid or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">Lots to raise on</div>
+        </a>
+        <a href="{{ url_for('buyer_dashboard') }}#bids" class="figure-cell">
+            <span class="overline">Currently leading</span>
+            <div class="value" data-count="{{ leading|length }}" data-count-decimals="0">0</div>
+            <div class="trail">Highest bidder</div>
+        </a>
+        <a href="{{ url_for('search') }}" class="figure-cell">
+            <span class="overline">Active bids</span>
+            <div class="value" data-count="{{ bs.active_bids or 0 }}" data-count-decimals="0">0</div>
+            <div class="trail">On open lots</div>
+        </a>
+    </section>
+
+    <!-- Figures -->
+    <section class="figures-row reveal mt-4">
+        {{ figure_cell('Total spent', bs.total_spent or 0, prefix='$', decimals=2,
+                       trail='Settled payments', variant='is-brand') }}
+        {{ figure_cell('Bids placed', my_bids|rejectattr('status', 'equalto', 'removed')|list|length,
+                       trail='Across all lots') }}
+        {{ figure_cell('Lots won', wins|length, trail='Closed lots') }}
+        {{ figure_cell('Win rate', win_rate, suffix='%', trail=closed_entered ~ ' closed entered') }}
     </section>
 
     <!-- Area graphs -->
@@ -98,7 +125,7 @@
 
     <div class="row g-4 mt-4">
         <!-- Bids -->
-        <div class="col-xl-7">
+        <div class="col-xl-7" id="bids">
             <div class="panel reveal">
             <div class="panel-head">
                 <h2 class="title-md mb-0">Your bids</h2>

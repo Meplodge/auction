@@ -654,7 +654,7 @@ def seller_dashboard():
         
         # Stats
         cur.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_auctions,
                 SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_auctions,
                 SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_auctions,
@@ -665,6 +665,25 @@ def seller_dashboard():
             WHERE seller_id = %s
         """, (current_user.id, current_user.id))
         stats = cur.fetchone()
+
+        # Extended seller stats
+        cur.execute("""
+            SELECT
+                (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+                  JOIN auctions a ON p.auction_id = a.auction_id
+                  WHERE a.seller_id = %s AND p.payment_status = 'completed') as total_revenue,
+                (SELECT COUNT(*) FROM auctions
+                  WHERE seller_id = %s AND status = 'closed' AND winner_id IS NOT NULL) as lots_sold,
+                (SELECT COUNT(*) FROM watchlist w
+                  JOIN auctions a ON w.auction_id = a.auction_id
+                  WHERE a.seller_id = %s) as watchers,
+                (SELECT COUNT(*) FROM auctions a
+                  WHERE a.seller_id = %s AND a.status = 'active'
+                    AND NOT EXISTS (SELECT 1 FROM bids
+                                     WHERE auction_id = a.auction_id AND status = 'accepted')) as no_bids
+        """, (current_user.id,) * 4)
+        seller_stats = cur.fetchone()
+
         cur.close()
 
         bids_series = daily_series("""
@@ -685,6 +704,7 @@ def seller_dashboard():
         """, (current_user.id,))
 
         return render_template('seller_dashboard.html', auctions=auctions, stats=stats,
+                              seller_stats=seller_stats,
                               bids_series=bids_series, earnings_series=earnings_series)
     except Exception as e:
         print(f"Seller dashboard error: {e}")
@@ -748,6 +768,28 @@ def buyer_dashboard():
         """, (current_user.id,))
         pending_invoices = cur.fetchall()
 
+        # Extended buyer stats
+        cur.execute("""
+            SELECT
+                (SELECT COALESCE(SUM(amount), 0) FROM payments
+                  WHERE buyer_id = %s AND payment_status = 'completed') as total_spent,
+                (SELECT COALESCE(MAX(bid_amount), 0) FROM bids
+                  WHERE bidder_id = %s AND status = 'accepted') as top_bid,
+                (SELECT COUNT(*) FROM bids
+                  WHERE bidder_id = %s AND status = 'accepted'
+                    AND auction_id IN (SELECT auction_id FROM auctions WHERE status = 'active')) as active_bids,
+                (SELECT COUNT(DISTINCT auction_id) FROM bids
+                  WHERE bidder_id = %s AND status = 'accepted'
+                    AND auction_id IN (SELECT auction_id FROM auctions WHERE status = 'closed')) as closed_entered,
+                (SELECT COUNT(DISTINCT b.auction_id) FROM bids b
+                  JOIN auctions a ON b.auction_id = a.auction_id
+                  WHERE b.bidder_id = %s AND b.status = 'accepted' AND a.status = 'active'
+                    AND a.current_price > (SELECT MAX(bid_amount) FROM bids
+                                            WHERE auction_id = b.auction_id AND bidder_id = %s
+                                              AND status = 'accepted')) as outbid
+        """, (current_user.id,) * 6)
+        buyer_stats = cur.fetchone()
+
         cur.close()
 
         bids_series = daily_series("""
@@ -772,7 +814,8 @@ def buyer_dashboard():
                               wins=wins,
                               pending_invoices=pending_invoices,
                               bids_series=bids_series,
-                              spend_series=spend_series)
+                              spend_series=spend_series,
+                              buyer_stats=buyer_stats)
     except Exception as e:
         print(f"Buyer dashboard error: {e}")
         flash('Error loading buyer dashboard', 'danger')
@@ -921,7 +964,37 @@ def place_bid():
             flash('Auction is not active.', 'danger')
             cur.close()
             return redirect(url_for('auction_details', auction_id=auction_id))
-        
+
+        if auction['seller_id'] == current_user.id:
+            flash('You cannot bid on your own lot.', 'danger')
+            cur.close()
+            return redirect(url_for('auction_details', auction_id=auction_id))
+
+        # Already leading? Bidding against yourself only inflates the price.
+        cur.execute("""
+            SELECT bidder_id, bid_amount FROM bids
+            WHERE auction_id = %s AND status = 'accepted'
+            ORDER BY bid_amount DESC, bid_time DESC
+            LIMIT 1
+        """, (auction_id,))
+        top = cur.fetchone()
+        if top and top['bidder_id'] == current_user.id:
+            flash('You are already the highest bidder on this lot.', 'info')
+            cur.close()
+            return redirect(url_for('auction_details', auction_id=auction_id))
+
+        # Reject an identical bid replayed by a refresh or a double click
+        cur.execute("""
+            SELECT bid_id FROM bids
+            WHERE auction_id = %s AND bidder_id = %s AND bid_amount = %s
+              AND status = 'accepted'
+            LIMIT 1
+        """, (auction_id, current_user.id, bid_amount))
+        if cur.fetchone():
+            flash('You have already placed that exact bid on this lot.', 'info')
+            cur.close()
+            return redirect(url_for('auction_details', auction_id=auction_id))
+
         if bid_amount <= auction['current_price']:
             flash(f'Bid must be higher than current price (${auction["current_price"]})', 'danger')
             cur.close()
@@ -2088,6 +2161,122 @@ def profile():
         print(f"Profile error: {e}")
         flash('Error loading profile.', 'danger')
         return redirect(url_for('index'))
+
+@app.route('/profile/delete', methods=['POST'])
+@login_required
+def delete_account():
+    """Close the signed-in user's own account and erase their records.
+
+    Refused while money is outstanding in either direction, or while the
+    account is the only administrator.
+    """
+    password = request.form.get('password', '')
+    confirm = request.form.get('confirm', '').strip().upper()
+
+    if confirm != 'DELETE':
+        flash('Type DELETE in the confirmation box to close your account.', 'danger')
+        return redirect(url_for('profile'))
+
+    try:
+        cur = mysql.connection.cursor()
+
+        cur.execute("SELECT * FROM users WHERE user_id = %s", (current_user.id,))
+        user = cur.fetchone()
+        if not user or not check_password_hash(user['password'], password):
+            cur.close()
+            flash('That password is incorrect. Your account was not deleted.', 'danger')
+            return redirect(url_for('profile'))
+
+        # An account that owes or is owed money cannot walk away
+        cur.execute("""
+            SELECT COUNT(*) AS total FROM payments
+            WHERE payment_status = 'pending' AND (buyer_id = %s OR seller_id = %s)
+        """, (current_user.id, current_user.id))
+        if cur.fetchone()['total']:
+            cur.close()
+            flash('You have unsettled invoices. Settle them before closing your account.', 'danger')
+            return redirect(url_for('profile'))
+
+        # Live lots with bids on them cannot simply vanish on the bidders
+        cur.execute("""
+            SELECT COUNT(*) AS total FROM auctions a
+            WHERE a.seller_id = %s AND a.status = 'active'
+              AND EXISTS (SELECT 1 FROM bids WHERE auction_id = a.auction_id AND status = 'accepted')
+        """, (current_user.id,))
+        if cur.fetchone()['total']:
+            cur.close()
+            flash('You have live lots with bids on them. Let them close first.', 'danger')
+            return redirect(url_for('profile'))
+
+        # Never leave the platform without an administrator
+        if user['user_type'] == 'admin':
+            cur.execute("SELECT COUNT(*) AS total FROM users WHERE user_type = 'admin' AND user_id <> %s",
+                        (current_user.id,))
+            if not cur.fetchone()['total']:
+                cur.close()
+                flash('You are the only administrator. Promote someone else first.', 'danger')
+                return redirect(url_for('profile'))
+
+        # Lots this user consigned, and the auctions they bid on (to recalculate)
+        cur.execute("SELECT auction_id FROM auctions WHERE seller_id = %s", (current_user.id,))
+        own_lots = [r['auction_id'] for r in cur.fetchall()]
+
+        cur.execute("SELECT DISTINCT auction_id FROM bids WHERE bidder_id = %s", (current_user.id,))
+        bid_on = [r['auction_id'] for r in cur.fetchall() if r['auction_id'] not in own_lots]
+
+        # Collect image files to unlink from disk after the commit
+        images = []
+        if own_lots:
+            marks = ','.join(['%s'] * len(own_lots))
+            cur.execute(f"SELECT image_url FROM auction_images WHERE auction_id IN ({marks})", own_lots)
+            images = [r['image_url'] for r in cur.fetchall()]
+
+        # Remove the user's own traces
+        cur.execute("DELETE FROM watchlist WHERE user_id = %s", (current_user.id,))
+        cur.execute("DELETE FROM bids WHERE bidder_id = %s", (current_user.id,))
+        cur.execute("DELETE FROM payments WHERE buyer_id = %s OR seller_id = %s",
+                    (current_user.id, current_user.id))
+
+        # Then everything hanging off the lots they consigned
+        if own_lots:
+            marks = ','.join(['%s'] * len(own_lots))
+            cur.execute(f"DELETE FROM watchlist WHERE auction_id IN ({marks})", own_lots)
+            cur.execute(f"DELETE FROM bids WHERE auction_id IN ({marks})", own_lots)
+            cur.execute(f"DELETE FROM auction_images WHERE auction_id IN ({marks})", own_lots)
+            cur.execute(f"DELETE FROM payments WHERE auction_id IN ({marks})", own_lots)
+            cur.execute("DELETE FROM auctions WHERE seller_id = %s", (current_user.id,))
+
+        # Lots they bid on are still live, so their prices need correcting
+        for auction_id in bid_on:
+            recalculate_auction(cur, auction_id)
+
+        # Detach any winner references left pointing at this user
+        cur.execute("UPDATE auctions SET winner_id = NULL WHERE winner_id = %s", (current_user.id,))
+        cur.execute("UPDATE bids SET removed_by = NULL WHERE removed_by = %s", (current_user.id,))
+        cur.execute("DELETE FROM admin_actions WHERE admin_id = %s", (current_user.id,))
+
+        avatar = user.get('profile_image')
+        cur.execute("DELETE FROM users WHERE user_id = %s", (current_user.id,))
+        mysql.connection.commit()
+        cur.close()
+
+        # Files last: the database is already consistent if this fails
+        for name in ([avatar] if avatar else []) + images:
+            path = os.path.join(app.config['UPLOAD_FOLDER'], name)
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError as e:
+                    print(f"Could not remove {path}: {e}")
+
+        logout_user()
+        flash('Your account has been closed. We are sorry to see you go.', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        mysql.connection.rollback()
+        print(f"Account deletion error: {e}")
+        flash('Error closing your account. Please try again.', 'danger')
+        return redirect(url_for('profile'))
 
 # ============================================
 # ERROR HANDLERS

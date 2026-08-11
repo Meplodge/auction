@@ -182,9 +182,19 @@
                 </div>
 
                 <!-- Bid form -->
+                {% set leading = bids and current_user.is_authenticated
+                                 and bids[0].bidder_id == current_user.id %}
                 <div class="mt-4">
-                {% if current_user.is_authenticated and current_user.user_type == 'buyer' and auction.status == 'active' %}
-                    <form method="POST" action="{{ url_for('place_bid') }}" class="bid-form">
+                {% if leading and auction.status == 'active' and current_user.user_type == 'buyer' %}
+                    <div class="alert alert-success mb-0">
+                        <strong><i class="fas fa-trophy"></i> You are the highest bidder</strong>
+                        <div class="small-print mt-1 mb-0">
+                            Your bid of ${{ "{:,.2f}".format(bids[0].bid_amount) }} is leading.
+                            You can bid again once someone outbids you.
+                        </div>
+                    </div>
+                {% elif current_user.is_authenticated and current_user.user_type == 'buyer' and auction.status == 'active' %}
+                    <form method="POST" action="{{ url_for('place_bid') }}" class="bid-form" data-bid-form>
                         <input type="hidden" name="auction_id" value="{{ auction.auction_id }}">
 
                         <label for="bid_amount" class="form-label">Your maximum bid</label>
