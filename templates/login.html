@@ -1,96 +1,57 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
 {% block title %}Sign in — Auction System{% endblock %}
 
-{% block content %}
-<div class="auth-single">
-    <div class="auth-card auth-card-split">
-        <!-- Visual -->
-        <div class="auth-banner">
-            <div class="auth-banner-bg" aria-hidden="true">
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_1_vintage-rolex-submariner-watch_1.jpg') }}'); animation-delay:0s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_3_gaming-laptop-rtx-4080-32gb-ram_0.jpg') }}'); animation-delay:6s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_6_diamond-pendant-necklace-18k-gold_0.jpg') }}'); animation-delay:12s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_2_antique-oak-writing-desk_0.jpg') }}'); animation-delay:18s"></div>
-            </div>
-            <div class="auth-banner-content">
-                <span class="wordmark" style="color:#fff"><span class="mark-rule"></span>Auction System</span>
+{% block quote %}&ldquo;The best lots rarely wait. I sign in, place my bid, and follow it to the close.&rdquo;{% endblock %}
+{% block quote_name %}Karen Yue{% endblock %}
+{% block quote_role %}Collector since 2019{% endblock %}
 
-                <div>
-                    <p class="quote mb-4">
-                        &ldquo;The best lots rarely wait.
-                        Sign in, place your bid, and follow it to the close.&rdquo;
-                    </p>
-                    <div class="rule mb-4"></div>
-                    <div class="row g-3">
-                        <div class="col-4">
-                            <span class="overline">Bidding</span>
-                            <div class="serif" style="font-size:1.2rem">Timed</div>
-                        </div>
-                        <div class="col-4">
-                            <span class="overline">Records</span>
-                            <div class="serif" style="font-size:1.2rem">Public</div>
-                        </div>
-                        <div class="col-4">
-                            <span class="overline">Close</span>
-                            <div class="serif" style="font-size:1.2rem">Automatic</div>
-                        </div>
-                    </div>
-                </div>
-
-                <span class="overline">Established 2026</span>
-            </div>
-        </div>
-
-        <!-- Form body -->
-        <div class="auth-body">
-            <span class="overline overline-accent">Account access</span>
-            <h1 class="display-sm mt-2 mb-2">Sign in</h1>
-            <p class="lede mb-4">Continue to your bids, saved lots and invoices.</p>
-
-            <form method="POST" class="needs-validation" novalidate>
-                <div class="mb-3">
-                    <label for="email" class="form-label">Email address</label>
-                    <input type="email" class="form-control" id="email" name="email"
-                           placeholder="you@example.com" required autofocus autocomplete="email">
-                    <div class="invalid-feedback">Enter a valid email address.</div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="password" class="form-label">Password</label>
-                    <div class="field">
-                        <input type="password" class="form-control" id="password" name="password"
-                               placeholder="••••••••" required autocomplete="current-password"
-                               style="padding-right:2.75rem">
-                        <button class="field-action password-toggle" type="button" data-target="#password"
-                                aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
-                    </div>
-                    <div class="invalid-feedback">Enter your password.</div>
-                </div>
-
-                <div class="form-check mb-4">
-                    <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                    <label class="form-check-label" for="remember">Keep me signed in</label>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block btn-lg">Sign in</button>
-            </form>
-
-            <p class="small-print text-center mt-4">
-                No account yet?
-                <a href="{{ url_for('register') }}" class="link-underline">Register</a>
-            </p>
-
-            <div class="credentials mt-4">
-                <span class="overline mb-2">Demonstration accounts</span>
-                <div class="row-item"><span>Administrator</span><code>admin@auction.com</code></div>
-                <div class="row-item"><span>Seller</span><code>john@email.com</code></div>
-                <div class="row-item"><span>Buyer</span><code>jane@email.com</code></div>
-                <div class="row-item" style="border-top:1px solid var(--line);margin-top:.35rem;padding-top:.5rem">
-                    <span>Password</span><code>password123</code>
-                </div>
-            </div>
-        </div>
-    </div>
+{% block auth %}
+<div class="authx-head">
+    <h1>Welcome back to Auction System</h1>
+    <p>Continue to your bids, saved lots and invoices.</p>
 </div>
+
+<form method="POST" class="needs-validation" novalidate>
+    <div class="mb-2">
+        <div class="authx-field">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="you@example.com" required autofocus autocomplete="email">
+        </div>
+        <div class="invalid-feedback">Enter a valid email address.</div>
+    </div>
+
+    <div>
+        <div class="authx-field has-action">
+            <label for="password">Password</label>
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="••••••••" required autocomplete="current-password">
+            <button class="field-action password-toggle" type="button" data-target="#password"
+                    aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
+        </div>
+        <div class="invalid-feedback">Enter your password.</div>
+        <a href="{{ url_for('register') }}" class="authx-link">Forgot password?</a>
+    </div>
+
+    <div class="authx-toggle">
+        <span>Remember sign in details</span>
+        <span class="switch">
+            <input type="checkbox" id="remember" name="remember" aria-label="Remember sign in details">
+            <span class="track"></span>
+        </span>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block authx-submit">Log in</button>
+</form>
+
+<div class="authx-or">or</div>
+
+<a href="{{ url_for('register') }}" class="authx-alt">
+    <i class="fas fa-user-plus"></i> Create a new account
+</a>
+
+<p class="authx-foot">
+    Don't have an account? <a href="{{ url_for('register') }}">Sign up</a>
+</p>
 {% endblock %}

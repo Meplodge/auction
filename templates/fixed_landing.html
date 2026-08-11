@@ -1,37 +1,214 @@
 {% extends "base.html" %}
 
-{% block title %}Auction System — Live lots{% endblock %}
-{% block body_class %}is-fixed-landing{% endblock %}
+{% block title %}Auction System — Lots on offer{% endblock %}
+{% block body_class %}is-showcase{% endblock %}
 
 {% block content %}
-<section class="fixed-hero">
-    <div class="fixed-hero-bg" aria-hidden="true"></div>
+<div class="showcase" data-rail tabindex="0" aria-label="Lots on offer">
 
-    <div class="fixed-hero-content">
-        <span class="hero-pill mb-3">
-            <i class="fas fa-circle" style="font-size:.4rem"></i>
-            {% if live_count %}{{ live_count }} lots open for bidding{% else %}Next sale opening soon{% endif %}
-        </span>
-
-        {% if current_user.is_authenticated %}
-            <h1 class="display mb-3">Welcome back, {{ current_user.first_name }} — ready to bid?</h1>
-        {% else %}
+    <!-- Opening slide -->
+    <section class="show-panel is-intro">
+        <div class="show-glow" aria-hidden="true"></div>
+        <div class="show-intro-inner">
+            <span class="hero-pill mb-3">
+                <i class="fas fa-circle" style="font-size:.4rem"></i>
+                {% if live_count %}{{ live_count }} lots open for bidding{% else %}Next sale opening soon{% endif %}
+            </span>
             <h1 class="display mb-3">Objects worth bidding on.</h1>
-        {% endif %}
-
-        <p class="lede mb-4" style="max-width:52ch; text-align:center; margin:0 auto 1.5rem;">
-            A timed marketplace for collectors, dealers and everyday sellers.
-            Browse the current sale, place a bid, and follow it to the close.
-        </p>
-
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
-            <a href="{{ url_for('search') }}" class="btn btn-primary">Browse lots</a>
-            {% if not current_user.is_authenticated %}
-                <a href="{{ url_for('register') }}" class="btn btn-outline">Open an account</a>
-            {% else %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Your dashboard</a>
+            <p class="lede mb-4 mx-auto" style="max-width:52ch">
+                Every lot in the current sale, one screen at a time &mdash; the estimate,
+                the clock, and who consigned it.
+            </p>
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <a href="{{ url_for('browse') }}" class="btn btn-primary">Browse departments</a>
+                {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('register') }}" class="btn btn-outline">Open an account</a>
+                {% else %}
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Your dashboard</a>
+                {% endif %}
+            </div>
+            {% if lots %}
+            <div class="show-hint">
+                Scroll sideways to view the lots <i class="fas fa-arrow-right"></i>
+            </div>
             {% endif %}
         </div>
-    </div>
-</section>
+    </section>
+
+    <!-- One slide per lot -->
+    {% for lot in lots %}
+    {% set words = (lot.title or 'Untitled lot').split() %}
+    <section class="show-panel {{ 'is-flipped' if loop.index0 % 2 }}" id="lot-{{ lot.auction_id }}">
+        <div class="show-glow" aria-hidden="true"></div>
+
+        <!-- Slide bar -->
+        <div class="show-bar">
+            <span class="show-id">
+                <span class="show-id-mark"><i class="fas fa-gavel"></i></span>
+                Lot {{ '%03d'|format(lot.auction_id) }}
+            </span>
+
+            <nav class="show-nav">
+                <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}" class="is-on">Details</a>
+                <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}#bids">Bids</a>
+                {% if lot.category %}
+                <a href="{{ url_for('browse', category=lot.category) }}">{{ lot.category }}</a>
+                {% endif %}
+            </nav>
+
+            <span class="show-status {{ 'is-live' if lot.status == 'active' else 'is-closed' }}">
+                <i class="fas fa-circle" style="font-size:.35rem"></i>
+                {{ 'Live now' if lot.status == 'active' else 'Closed' }}
+            </span>
+        </div>
+
+        <!-- Slide body -->
+        <div class="show-body">
+            <div class="show-copy">
+                <h2 class="show-title">
+                    {% if words|length > 1 %}
+                        {{ words[:-1]|join(' ') }} <span class="accent">{{ words[-1] }}</span>
+                    {% else %}
+                        <span class="accent">{{ words[0] }}</span>
+                    {% endif %}
+                </h2>
+
+                <p class="show-text">{{ (lot.description or 'No description was supplied for this lot.')|truncate(240, true, '…') }}</p>
+
+                {% if lot.images %}
+                <div class="show-gallery">
+                    <span class="overline">Gallery &mdash; {{ lot.images|length }} image{{ '' if lot.images|length == 1 else 's' }}</span>
+                    <div class="show-thumbs">
+                        {% for img in lot.images %}
+                        <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}" class="show-thumb">
+                            <img src="{{ url_for('static', filename='uploads/' + img) }}"
+                                 alt="{{ lot.title }} view {{ loop.index }}" loading="lazy">
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="show-buy">
+                    <div class="show-price">
+                        <span class="overline">{{ 'Current bid' if lot.total_bids else 'Opening bid' }}</span>
+                        <span class="value">
+                            <i class="fas fa-dollar-sign"></i>{{ "{:,.0f}".format(lot.current_price) }}
+                        </span>
+                    </div>
+                    <a href="{{ url_for('auction_details', auction_id=lot.auction_id) }}" class="btn btn-primary show-cta">
+                        {{ 'Place a bid' if lot.status == 'active' else 'View result' }}
+                        <i class="fas fa-chevron-right" style="font-size:.65rem"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="show-media">
+                {% if lot.primary_image %}
+                    <img src="{{ url_for('static', filename='uploads/' + lot.primary_image) }}"
+                         alt="{{ lot.title }}" loading="lazy">
+                {% else %}
+                    <span class="no-image"><i class="far fa-image"></i></span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Slide footer: the four figures, plus slide-to-slide arrows -->
+        <div class="show-foot">
+            <div class="show-specs">
+                <div class="show-spec">
+                    <i class="fas fa-gavel"></i>
+                    <span class="label">Bids</span>
+                    <span class="figure">{{ lot.total_bids or 0 }}</span>
+                </div>
+                <div class="show-spec">
+                    <i class="far fa-clock"></i>
+                    <span class="label">Closes</span>
+                    <span class="figure">
+                        {% if lot.status == 'active' and lot.end_date %}
+                            <span data-countdown="{{ lot.end_date }}">&mdash;</span>
+                        {% else %}
+                            Ended
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="show-spec">
+                    <i class="far fa-user"></i>
+                    <span class="label">Seller</span>
+                    <span class="figure">{{ lot.first_name }} {{ (lot.last_name or '')[:1] }}{{ '.' if lot.last_name }}</span>
+                </div>
+                <div class="show-spec">
+                    <i class="fas fa-tag"></i>
+                    <span class="label">Department</span>
+                    <span class="figure">{{ lot.category or 'Unsorted' }}</span>
+                </div>
+            </div>
+
+            <div class="show-steps">
+                <span class="show-count">{{ '%02d'|format(loop.index) }} / {{ '%02d'|format(lots|length) }}</span>
+                <button type="button" data-step="prev" aria-label="Previous lot">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" data-step="next" aria-label="Next lot">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Full-screen sideways carousel: snap one slide at a time, driven by the
+   arrows, the keyboard, or a vertical wheel (there is nothing to scroll down to). */
+(function () {
+    const rail = document.querySelector('[data-rail]');
+    if (!rail) return;
+
+    const slides = Array.from(rail.querySelectorAll('.show-panel'));
+    const current = () => Math.round(rail.scrollLeft / rail.clientWidth);
+
+    function goTo(index) {
+        const target = Math.max(0, Math.min(slides.length - 1, index));
+        rail.scrollTo({ left: target * rail.clientWidth, behavior: 'smooth' });
+    }
+
+    function syncArrows() {
+        const at = current();
+        rail.querySelectorAll('[data-step="prev"]').forEach(b => b.disabled = at === 0);
+        rail.querySelectorAll('[data-step="next"]').forEach(b => b.disabled = at === slides.length - 1);
+    }
+
+    rail.querySelectorAll('[data-step]').forEach(button => {
+        button.addEventListener('click', function () {
+            goTo(current() + (this.dataset.step === 'next' ? 1 : -1));
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.target.matches('input, textarea, select')) return;
+        if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); goTo(current() + 1); }
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); goTo(current() - 1); }
+        if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+        if (e.key === 'End') { e.preventDefault(); goTo(slides.length - 1); }
+    });
+
+    // Translate a mouse wheel into slide steps, throttled so one flick moves one slide
+    let locked = false;
+    rail.addEventListener('wheel', function (e) {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;   // already a sideways gesture
+        e.preventDefault();
+        if (locked) return;
+        locked = true;
+        goTo(current() + (e.deltaY > 0 ? 1 : -1));
+        setTimeout(() => { locked = false; }, 520);
+    }, { passive: false });
+
+    rail.addEventListener('scroll', syncArrows, { passive: true });
+    window.addEventListener('resize', () => goTo(current()));
+    syncArrows();
+})();
+</script>
 {% endblock %}

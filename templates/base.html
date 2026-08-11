@@ -32,7 +32,7 @@
             <div class="nav-panel d-lg-flex align-items-center gap-4 ms-lg-4 flex-lg-grow-1" id="navPanel">
                 <ul class="nav-links me-lg-auto">
                     <li><a href="{{ url_for('fixed') }}">Home</a></li>
-                    <li><a href="{{ url_for('index') }}">Browse</a></li>
+                    <li><a href="{{ url_for('browse') }}" class="{{ 'active' if request.path == '/browse' }}">Browse</a></li>
                     <li><a href="{{ url_for('search') }}">Lots</a></li>
                     <li><a href="{{ url_for('search', status='closed') }}">Results</a></li>
                     {% if current_user.is_authenticated and current_user.user_type in ['seller', 'admin'] %}

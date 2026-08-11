@@ -1,131 +1,108 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
-{% block title %}Register — Auction System{% endblock %}
+{% block title %}Sign up — Auction System{% endblock %}
 
-{% block content %}
-<div class="auth-single">
-    <div class="auth-card auth-card-split">
-        <!-- Visual -->
-        <div class="auth-banner">
-            <div class="auth-banner-bg" aria-hidden="true">
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_1_vintage-rolex-submariner-watch_1.jpg') }}'); animation-delay:0s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_3_gaming-laptop-rtx-4080-32gb-ram_0.jpg') }}'); animation-delay:6s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_6_diamond-pendant-necklace-18k-gold_0.jpg') }}'); animation-delay:12s"></div>
-                <div class="auth-slide" style="background-image:url('{{ url_for('static', filename='uploads/seed_2_antique-oak-writing-desk_0.jpg') }}'); animation-delay:18s"></div>
+{% block card_class %}is-wide{% endblock %}
+
+{% block quote %}&ldquo;Simply all the tools that my team and I need to consign, price and close a sale.&rdquo;{% endblock %}
+{% block quote_name %}Daniel Mabika{% endblock %}
+{% block quote_role %}Dealer, Harare Fine Art{% endblock %}
+
+{% block auth %}
+<div class="authx-head">
+    <h1>Create your Auction System account</h1>
+    <p>A minute to set up. You can bid as soon as you're in.</p>
+</div>
+
+<form method="POST" class="needs-validation" novalidate>
+    <div class="row g-2">
+        <div class="col-sm-6 mb-2">
+            <div class="authx-field">
+                <label for="first_name">First name</label>
+                <input type="text" class="form-control" id="first_name" name="first_name" required autofocus
+                       autocomplete="given-name">
             </div>
-            <div class="auth-banner-content">
-                <span class="wordmark" style="color:#fff"><span class="mark-rule"></span>Auction System</span>
-
-                <div>
-                    <p class="quote mb-4">
-                        &ldquo;The best lots rarely wait.
-                        Sign in, place your bid, and follow it to the close.&rdquo;
-                    </p>
-                    <div class="rule mb-4"></div>
-                    <div class="row g-3">
-                        <div class="col-4">
-                            <span class="overline">Bidding</span>
-                            <div class="serif" style="font-size:1.2rem">Timed</div>
-                        </div>
-                        <div class="col-4">
-                            <span class="overline">Records</span>
-                            <div class="serif" style="font-size:1.2rem">Public</div>
-                        </div>
-                        <div class="col-4">
-                            <span class="overline">Close</span>
-                            <div class="serif" style="font-size:1.2rem">Automatic</div>
-                        </div>
-                    </div>
-                </div>
-
-                <span class="overline">Established 2026</span>
-            </div>
+            <div class="invalid-feedback">Required.</div>
         </div>
-
-        <!-- Form body -->
-        <div class="auth-body">
-            <span class="overline overline-accent">Open an account</span>
-            <h1 class="display-sm mt-2 mb-2">Register</h1>
-            <p class="lede mb-4">A minute to set up. You can bid as soon as you're in.</p>
-
-            <form method="POST" class="needs-validation" novalidate>
-                <div class="fieldset-title"><span class="n">01</span><span>Your details</span></div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="first_name" class="form-label">First name</label>
-                        <input type="text" class="form-control" id="first_name" name="first_name" required>
-                        <div class="invalid-feedback">Required.</div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="last_name" class="form-label">Last name</label>
-                        <input type="text" class="form-control" id="last_name" name="last_name" required>
-                        <div class="invalid-feedback">Required.</div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
-                        <div class="invalid-feedback">Choose a username.</div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="phone" class="form-label">Telephone <span class="text-faint">(optional)</span></label>
-                        <input type="tel" class="form-control" id="phone" name="phone">
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="email" class="form-label">Email address</label>
-                    <input type="email" class="form-control" id="email" name="email"
-                           placeholder="you@example.com" required>
-                    <div class="invalid-feedback">Enter a valid email address.</div>
-                </div>
-
-                <div class="fieldset-title"><span class="n">02</span><span>Account type</span></div>
-
-                <div class="mb-4">
-                    <label for="user_type" class="form-label">I am registering to</label>
-                    <select class="form-select" id="user_type" name="user_type" required>
-                        <option value="buyer">Bid on lots &mdash; buyer account</option>
-                        <option value="seller">Consign and sell &mdash; seller account</option>
-                    </select>
-                </div>
-
-                <div class="fieldset-title"><span class="n">03</span><span>Security</span></div>
-
-                <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <div class="field">
-                        <input type="password" class="form-control" id="password" name="password"
-                               minlength="8" required style="padding-right:2.75rem">
-                        <button class="field-action password-toggle" type="button" data-target="#password"
-                                aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
-                    </div>
-                    <div class="strength-meter"><span></span><span></span><span></span><span></span></div>
-                    <div class="form-text">Eight characters minimum. Mix letters, numbers and symbols.</div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="confirm_password" class="form-label">Confirm password</label>
-                    <div class="field">
-                        <input type="password" class="form-control" id="confirm_password"
-                               name="confirm_password" required style="padding-right:2.75rem">
-                        <button class="field-action password-toggle" type="button" data-target="#confirm_password"
-                                aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
-                    </div>
-                    <div class="invalid-feedback">Passwords must match.</div>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block btn-lg">Create account</button>
-            </form>
-
-            <p class="small-print text-center mt-4 mb-0">
-                Already registered?
-                <a href="{{ url_for('login') }}" class="link-underline">Sign in</a>
-            </p>
+        <div class="col-sm-6 mb-2">
+            <div class="authx-field">
+                <label for="last_name">Last name</label>
+                <input type="text" class="form-control" id="last_name" name="last_name" required
+                       autocomplete="family-name">
+            </div>
+            <div class="invalid-feedback">Required.</div>
         </div>
     </div>
-</div>
+
+    <div class="row g-2">
+        <div class="col-sm-6 mb-2">
+            <div class="authx-field">
+                <label for="username">Username</label>
+                <input type="text" class="form-control" id="username" name="username" required
+                       autocomplete="username">
+            </div>
+            <div class="invalid-feedback">Choose a username.</div>
+        </div>
+        <div class="col-sm-6 mb-2">
+            <div class="authx-field">
+                <label for="phone">Telephone (optional)</label>
+                <input type="tel" class="form-control" id="phone" name="phone" autocomplete="tel">
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <div class="authx-field">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="invalid-feedback">Enter a valid email address.</div>
+    </div>
+
+    <div class="mb-2">
+        <div class="authx-field">
+            <label for="user_type">I am registering to</label>
+            <select class="form-select" id="user_type" name="user_type" required>
+                <option value="buyer">Bid on lots &mdash; buyer account</option>
+                <option value="seller">Consign and sell &mdash; seller account</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <div class="authx-field has-action">
+            <label for="password">Password</label>
+            <input type="password" class="form-control" id="password" name="password"
+                   minlength="8" required autocomplete="new-password">
+            <button class="field-action password-toggle" type="button" data-target="#password"
+                    aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
+        </div>
+        <div class="strength-meter"><span></span><span></span><span></span><span></span></div>
+        <div class="form-text">Eight characters minimum. Mix letters, numbers and symbols.</div>
+    </div>
+
+    <div>
+        <div class="authx-field has-action">
+            <label for="confirm_password">Confirm password</label>
+            <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                   required autocomplete="new-password">
+            <button class="field-action password-toggle" type="button" data-target="#confirm_password"
+                    aria-label="Show password"><i class="fas fa-eye" style="font-size:.8rem"></i></button>
+        </div>
+        <div class="invalid-feedback">Passwords must match.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block authx-submit mt-4">Create account</button>
+</form>
+
+<div class="authx-or">or</div>
+
+<a href="{{ url_for('login') }}" class="authx-alt">
+    <i class="fas fa-arrow-right-to-bracket"></i> Sign in to an existing account
+</a>
+
+<p class="authx-foot">
+    Already registered? <a href="{{ url_for('login') }}">Log in</a>
+</p>
 {% endblock %}

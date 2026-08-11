@@ -19,6 +19,35 @@
         </div>
     </header>
 
+    {% if pending_invoices %}
+    <div class="panel p-4 mb-4 reveal" style="border-left:4px solid var(--brand-400)">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="title-md mb-0">
+                <i class="fas fa-file-invoice-dollar" style="color:var(--brand-600)"></i>
+                Payment due — you won {{ pending_invoices|length }} lot{{ '' if pending_invoices|length == 1 else 's' }}
+            </h2>
+            <a href="{{ url_for('payments') }}" class="btn btn-accent btn-sm">Settle now</a>
+        </div>
+        <div class="stack-lines">
+            {% for inv in pending_invoices %}
+            <div class="d-flex flex-wrap align-items-center gap-2 py-3">
+                <div>
+                    <a href="{{ url_for('auction_details', auction_id=inv.auction_id) }}"
+                       class="t-strong link-underline">{{ inv.title }}</a>
+                    <div class="small-print">
+                        Won from {{ inv.seller_first_name }} {{ inv.seller_last_name }}
+                        &middot; {{ inv.created_at.strftime('%d %b %Y') if inv.created_at else '' }}
+                    </div>
+                </div>
+                <span class="mark-box is-accent ms-auto">${{ "{:,.2f}".format(inv.amount) }} due</span>
+                <a href="{{ url_for('view_invoice', payment_id=inv.payment_id) }}"
+                   class="btn btn-quiet btn-sm">View invoice</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if removed %}
     <div class="panel p-4 mb-4 reveal" style="border-left:4px solid var(--danger)">
         <h2 class="title-md mb-2">
@@ -47,8 +76,12 @@
     <section class="figures-row reveal">
         {{ figure_cell('Bids placed', my_bids|rejectattr('status', 'equalto', 'removed')|list|length, trail='Across all lots') }}
         {{ figure_cell('Lots saved', watchlist|length, trail='Following') }}
-        {{ figure_cell('Lots won', wins|length, trail='Ready to settle') }}
+        {{ figure_cell('Lots won', wins|length, trail=pending_invoices|length ~ ' awaiting payment') }}
         {{ figure_cell('Currently leading', leading|length, trail='Highest bidder') }}
+        {% if pending_invoices %}
+        {{ figure_cell('Amount due', pending_invoices|sum(attribute='amount'), prefix='$', decimals=2,
+                       trail='Pending invoices', variant='is-accent') }}
+        {% endif %}
     </section>
 
     <!-- Area graphs -->
@@ -194,10 +227,13 @@
                         <th>Consigned by</th>
                         <th class="text-end">Hammer price</th>
                         <th class="text-end">Closed</th>
+                        <th>Payment</th>
+                        <th class="text-end"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for auction in wins %}
+                    {% set inv = pending_invoices|selectattr('auction_id', 'equalto', auction.auction_id)|first %}
                     <tr>
                         <td class="rank">{{ '%03d'|format(auction.auction_id) }}</td>
                         <td>
@@ -208,6 +244,22 @@
                         <td class="text-end t-figure">${{ "{:,.2f}".format(auction.current_price) }}</td>
                         <td class="text-end t-quiet">
                             {{ auction.end_date.strftime('%d %b %Y') if auction.end_date else '—' }}
+                        </td>
+                        <td>
+                            {% if inv %}
+                                <span class="mark-box is-draft">Pending</span>
+                            {% else %}
+                                <span class="mark-box is-live">Settled</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if inv %}
+                            <a href="{{ url_for('view_invoice', payment_id=inv.payment_id) }}"
+                               class="btn btn-accent btn-sm">Pay now</a>
+                            {% else %}
+                            <a href="{{ url_for('payments') }}"
+                               class="btn btn-quiet btn-sm">View invoice</a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

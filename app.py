@@ -236,6 +236,26 @@ def get_categories():
     except:
         return ['Electronics', 'Furniture', 'Cars', 'Fashion', 'Luxury', 'Books']
 
+def get_category_counts():
+    """Every department with the number of lots currently open for bidding."""
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            SELECT category,
+                   COUNT(*) AS total,
+                   SUM(status = 'active') AS live
+            FROM auctions
+            WHERE category IS NOT NULL AND category <> ''
+            GROUP BY category
+            ORDER BY category
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [{'name': r['category'], 'total': r['total'], 'live': int(r['live'] or 0)} for r in rows]
+    except Exception as e:
+        print(f"Category counts error: {e}")
+        return []
+
 def log_admin_action(cur, action, target_type, target_id, note=None):
     """Record an admin mutation in the audit log. Uses the passed cursor so it
     participates in the caller's transaction."""
@@ -328,15 +348,40 @@ def index():
 
 @app.route('/fixed')
 def fixed():
-    """Non-scrolling fixed landing page."""
+    """Showcase landing page: each lot on offer presented in full, one after another."""
+    update_auction_status()
     try:
         cur = mysql.connection.cursor()
+        cur.execute("""
+            SELECT a.*, u.username, u.first_name, u.last_name,
+                   (SELECT image_url FROM auction_images
+                    WHERE auction_id = a.auction_id AND is_primary = TRUE LIMIT 1) AS primary_image
+            FROM auctions a
+            LEFT JOIN users u ON a.seller_id = u.user_id
+            WHERE a.status IN ('active', 'closed')
+            ORDER BY (a.status = 'active') DESC, a.end_date ASC
+            LIMIT 8
+        """)
+        lots = cur.fetchall()
+
+        # The thumbnail strip on each panel needs the whole gallery, not just the primary
+        for lot in lots:
+            cur.execute("""
+                SELECT image_url FROM auction_images
+                WHERE auction_id = %s
+                ORDER BY is_primary DESC, image_id ASC
+                LIMIT 5
+            """, (lot['auction_id'],))
+            lot['images'] = [r['image_url'] for r in cur.fetchall()]
+
         cur.execute("SELECT COUNT(*) as live FROM auctions WHERE status = 'active'")
         live_count = cur.fetchone()['live']
         cur.close()
-    except Exception:
-        live_count = 0
-    return render_template('fixed_landing.html', live_count=live_count)
+
+        return render_template('fixed_landing.html', lots=lots, live_count=live_count)
+    except Exception as e:
+        print(f"Showcase error: {e}")
+        return render_template('fixed_landing.html', lots=[], live_count=0)
 
 # ============================================
 # AUTHENTICATION ROUTES
@@ -689,7 +734,20 @@ def buyer_dashboard():
             ORDER BY a.end_date DESC
         """, (current_user.id,))
         wins = cur.fetchall()
-        
+
+        # Pending invoices (won but not yet paid)
+        cur.execute("""
+            SELECT p.payment_id, p.amount, p.payment_status, p.created_at,
+                   a.auction_id, a.title, a.category,
+                   u.first_name as seller_first_name, u.last_name as seller_last_name
+            FROM payments p
+            JOIN auctions a ON p.auction_id = a.auction_id
+            JOIN users u ON p.seller_id = u.user_id
+            WHERE p.buyer_id = %s AND p.payment_status = 'pending'
+            ORDER BY p.created_at DESC
+        """, (current_user.id,))
+        pending_invoices = cur.fetchall()
+
         cur.close()
 
         bids_series = daily_series("""
@@ -712,6 +770,7 @@ def buyer_dashboard():
                               my_bids=my_bids,
                               watchlist=watchlist,
                               wins=wins,
+                              pending_invoices=pending_invoices,
                               bids_series=bids_series,
                               spend_series=spend_series)
     except Exception as e:
@@ -1783,6 +1842,90 @@ def search():
         print(f"Search error: {e}")
         flash('Error performing search.', 'danger')
         return render_template('search.html', auctions=[], query=query, categories=[], sellers=[])
+
+@app.route('/browse')
+def browse():
+    """Department landing page: pick a category, refine, page through the lots."""
+    category = request.args.get('category', '').strip()
+    status = request.args.get('status', 'active')
+    price = request.args.get('price', '')
+    ending = request.args.get('ending', '')
+    sort = request.args.get('sort', 'newest')
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = 12
+    offset = (page - 1) * per_page
+
+    price_bands = {
+        'under100': (None, 100),
+        '100-500': (100, 500),
+        '500-1000': (500, 1000),
+        '1000plus': (1000, None),
+    }
+
+    sort_columns = {
+        'newest': 'a.created_at DESC',
+        'oldest': 'a.created_at ASC',
+        'price_low': 'a.current_price ASC',
+        'price_high': 'a.current_price DESC',
+        'bids': 'a.total_bids DESC',
+        'ending': 'a.end_date ASC',
+    }
+
+    try:
+        cur = mysql.connection.cursor()
+
+        where = " WHERE 1=1"
+        params = []
+
+        if category:
+            where += " AND a.category = %s"
+            params.append(category)
+        if status in ('active', 'closed'):
+            where += " AND a.status = %s"
+            params.append(status)
+        else:
+            where += " AND a.status IN ('active', 'closed')"
+        if price in price_bands:
+            low, high = price_bands[price]
+            if low is not None:
+                where += " AND a.current_price >= %s"
+                params.append(low)
+            if high is not None:
+                where += " AND a.current_price <= %s"
+                params.append(high)
+        if ending == 'today':
+            where += " AND a.status = 'active' AND a.end_date <= DATE_ADD(NOW(), INTERVAL 1 DAY)"
+        elif ending == 'week':
+            where += " AND a.status = 'active' AND a.end_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)"
+
+        cur.execute(f"SELECT COUNT(*) AS total FROM auctions a{where}", params)
+        total = cur.fetchone()['total']
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        cur.execute(f"""
+            SELECT a.*, u.username, u.first_name, u.last_name,
+                   (SELECT image_url FROM auction_images
+                    WHERE auction_id = a.auction_id AND is_primary = TRUE LIMIT 1) AS primary_image,
+                   (SELECT COUNT(*) FROM auction_images WHERE auction_id = a.auction_id) AS image_count
+            FROM auctions a
+            LEFT JOIN users u ON a.seller_id = u.user_id
+            {where}
+            ORDER BY {sort_columns.get(sort, sort_columns['newest'])}
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+        auctions = cur.fetchall()
+
+        cur.close()
+
+        return render_template('browse.html', auctions=auctions, departments=get_category_counts(),
+                               category=category, status=status, price=price, ending=ending,
+                               sort=sort, page=page, total_pages=total_pages, total=total)
+    except Exception as e:
+        print(f"Browse error: {e}")
+        flash('Error loading the catalogue.', 'danger')
+        return render_template('browse.html', auctions=[], departments=[], category=category,
+                               status=status, price=price, ending=ending, sort=sort,
+                               page=1, total_pages=1, total=0)
 
 # ============================================
 # USER PROFILE
