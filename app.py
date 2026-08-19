@@ -995,15 +995,15 @@ def place_bid():
             cur.close()
             return redirect(url_for('auction_details', auction_id=auction_id))
 
-        if bid_amount <= auction['current_price']:
-            flash(f'Bid must be higher than current price (${auction["current_price"]})', 'danger')
-            cur.close()
-            return redirect(url_for('auction_details', auction_id=auction_id))
-        
-        # Check minimum bid increment
-        min_bid = auction['current_price'] + auction['min_bid_increment']
+        # The first bid may match the seller's starting price exactly; later bids
+        # must clear the standing price by at least one increment.
+        if top:
+            min_bid = auction['current_price'] + auction['min_bid_increment']
+        else:
+            min_bid = auction['starting_price']
+
         if bid_amount < min_bid:
-            flash(f'Minimum bid is ${min_bid}', 'danger')
+            flash(f'Minimum bid is ${min_bid:,.2f}', 'danger')
             cur.close()
             return redirect(url_for('auction_details', auction_id=auction_id))
         

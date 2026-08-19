@@ -4,7 +4,8 @@
 {% block title %}{{ auction.title }} — Lot {{ '%03d'|format(auction.auction_id) }}{% endblock %}
 
 {% block content %}
-{% set min_bid = auction.current_price + auction.min_bid_increment %}
+{% set min_bid = auction.starting_price if not auction.total_bids
+                 else auction.current_price + auction.min_bid_increment %}
 
 <div class="container">
 
@@ -206,7 +207,7 @@
 
                         <div class="quick-bids mb-3">
                             {% for step in [1, 2, 5] %}
-                            {% set quick = auction.current_price + auction.min_bid_increment * step %}
+                            {% set quick = min_bid + auction.min_bid_increment * (step - 1) %}
                             <button type="button" data-quick-bid="{{ quick }}">${{ "{:,.0f}".format(quick) }}</button>
                             {% endfor %}
                         </div>
