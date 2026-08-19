@@ -18,7 +18,7 @@
             </div>
             <div class="col-md-4 text-md-end">
                 <a href="{{ url_for('create_auction') }}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Consign an item
+                    <i class="fas fa-plus"></i> Sell an item
                 </a>
             </div>
         </div>
@@ -124,7 +124,7 @@
         {% else %}
             {{ blank('fa-box-open', 'Nothing consigned yet',
                      'List your first item and it will appear in the next sale.',
-                     url_for('create_auction'), 'Consign an item') }}
+                     url_for('create_auction'), 'Sell an item') }}
         {% endif %}
         </div>
     </section>

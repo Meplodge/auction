@@ -1,12 +1,12 @@
 {% extends "dash_base.html" %}
 
-{% block title %}Consign an item — Auction System{% endblock %}
+{% block title %}Sell an item — Auction System{% endblock %}
 
 {% block dash %}
     <header class="masthead pt-0">
         <div class="row align-items-end g-3">
             <div class="col-md-8">
-                <h1>Consign an item</h1>
+                <h1>Sell an item</h1>
                 <p class="lede">Describe the lot, set your opening bid and closing time. It goes live immediately.</p>
             </div>
             <div class="col-md-4 text-md-end">
@@ -23,7 +23,7 @@
                     <div class="fieldset-title"><span class="n">01</span><span>The lot</span></div>
 
                     <div class="mb-4">
-                        <label for="title" class="form-label">Title</label>
+                        <label for="title" class="form-label">Item number</label>
                         <input type="text" class="form-control" id="title" name="title"
                                placeholder="e.g. Vintage Rolex Submariner Watch" maxlength="255" required>
                         <div class="form-text">How the lot appears in the catalogue.</div>
@@ -31,7 +31,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="category" class="form-label">Department</label>
+                        <label for="category" class="form-label">Category</label>
                         <select class="form-select" id="category" name="category" required>
                             <option value="">Select a department</option>
                             {% set preset = ['Valuables and Collections', 'Home and Property',
@@ -44,7 +44,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="description" class="form-label">Catalogue note</label>
+                        <label for="description" class="form-label">Description</label>
                         <textarea class="form-control" id="description" name="description" rows="7"
                                   placeholder="Condition, provenance, dimensions, maker's marks, anything a bidder should know."
                                   required></textarea>

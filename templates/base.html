@@ -36,7 +36,7 @@
                     <li><a href="{{ url_for('search') }}">Lots</a></li>
                     <li><a href="{{ url_for('search', status='closed') }}">Results</a></li>
                     {% if current_user.is_authenticated and current_user.user_type in ['seller', 'admin'] %}
-                    <li><a href="{{ url_for('create_auction') }}">Consign</a></li>
+                    <li><a href="{{ url_for('create_auction') }}">Sell</a></li>
                     {% endif %}
                 </ul>
 
@@ -151,7 +151,7 @@
                 <div class="col-lg-4">
                     <h6>Selling with us</h6>
                     <p style="max-width:34ch">
-                        Register a seller account to consign an item. Set your reserve,
+                        Register a seller account to Sell an item. Set your reserve,
                         choose a closing time, and the highest bid at close wins the lot.
                     </p>
                     {% if not current_user.is_authenticated %}

@@ -20,7 +20,7 @@
                 </a>
                 {% if current_user.user_type in ['seller', 'admin'] %}
                 <a class="side-link {{ 'is-on' if here == '/create_auction' }}" href="{{ url_for('create_auction') }}">
-                    <i class="fas fa-plus"></i> Consign an item
+                    <i class="fas fa-plus"></i> Sell an item
                 </a>
                 {% endif %}
                 {% if current_user.user_type == 'admin' %}
@@ -58,7 +58,7 @@
             {% if current_user.user_type == 'buyer' %}
             <div class="side-promo">
                 <h6>Start selling</h6>
-                <p>Have something worth bidding on? Register a seller account and consign it.</p>
+                <p>Have something worth bidding on? Register a seller account and Sell it.</p>
                 <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm btn-block">Learn more</a>
             </div>
             {% else %}

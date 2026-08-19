@@ -1,5 +1,5 @@
 """Temporary check: first bid may equal the seller's starting price."""
-import urllib.request, urllib.parse, http.cookiejar, MySQLdb
+import urllib.request, urllib.parse, http.cookiejar, MySQLdb, MySQLdb.cursors
 
 BASE = 'http://127.0.0.1:5000'
 db = MySQLdb.connect(host='localhost', user='root', passwd='', db='auction_db',

@@ -40,7 +40,7 @@
                     {% if not current_user.is_authenticated %}
                         <a href="{{ url_for('register') }}" class="btn btn-outline">Open an account</a>
                     {% elif current_user.user_type in ['seller', 'admin'] %}
-                        <a href="{{ url_for('create_auction') }}" class="btn btn-outline">Consign an item</a>
+                        <a href="{{ url_for('create_auction') }}" class="btn btn-outline">Sell an item</a>
                     {% else %}
                         <a href="{{ url_for('buyer_dashboard') }}" class="btn btn-outline">Your dashboard</a>
                     {% endif %}
@@ -149,7 +149,7 @@
             {{ blank('fa-gavel', 'No lots in this sale',
                      'Nothing is open for bidding just yet. Please check back shortly.',
                      url_for('create_auction') if current_user.is_authenticated and current_user.user_type in ['seller','admin'] else url_for('register'),
-                     'Consign an item' if current_user.is_authenticated and current_user.user_type in ['seller','admin'] else 'Open an account') }}
+                     'Sell an item' if current_user.is_authenticated and current_user.user_type in ['seller','admin'] else 'Open an account') }}
         {% endif %}
     </section>
 
@@ -167,7 +167,7 @@
             <div class="col-lg-8">
                 <div class="panel stack-lines px-3">
                     {% set steps = [
-                        ('01', 'Register', 'Open a buyer account to bid, or a seller account to consign your own items. It takes a minute.'),
+                        ('01', 'Register', 'Open a buyer account to bid, or a seller account to Sell your own items. It takes a minute.'),
                         ('02', 'Browse the sale', 'Filter by department, price or closing time. Save the lots you want to follow.'),
                         ('03', 'Place your bid', 'Bid above the current price by at least the stated increment. You can raise it any time before the close.'),
                         ('04', 'Settle up', 'Win the lot and the invoice appears in your account, ready to pay.')

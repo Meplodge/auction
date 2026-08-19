@@ -138,7 +138,7 @@ add_paragraph(doc,
 add_heading_custom(doc, "1.5 Target Users", level=2)
 add_bullets(doc, [
     "Buyers: registered users who browse lots, place bids, manage watchlists and pay invoices.",
-    "Sellers: registered users who consign items, upload photographs and track bidding activity.",
+    "Sellers: registered users who Sell items, upload photographs and track bidding activity.",
     "Administrators: users who moderate lots, bids and accounts, and settle payments on behalf of buyers."
 ])
 
@@ -298,7 +298,7 @@ add_bullets(doc, [
 
 add_heading_custom(doc, "4.4 Seller Features", level=2)
 add_bullets(doc, [
-    "Consign new lots with title, category, description, opening bid, bid increment and closing time.",
+    "Sell new lots with title, category, description, opening bid, bid increment and closing time.",
     "Upload multiple photographs; the first image is used as the primary catalogue photo.",
     "Track all consigned lots, live lots, closed lots, watchers and total revenue.",
     "View dashboard charts showing bidding activity and earnings over the previous fourteen days."
